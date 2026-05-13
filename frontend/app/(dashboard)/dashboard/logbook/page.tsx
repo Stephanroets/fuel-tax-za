@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { api } from "@/lib/api/client";
-import type { Vehicle } from "@/lib/types/database";
+import type { Vehicle, Trip, EntryImage } from "@/lib/types/database";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -14,6 +15,13 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   Plus,
   FileText,
   Download,
@@ -23,9 +31,12 @@ import {
   TrendingUp,
   Car,
   Filter,
+  Lock,
+  Image as ImageIcon,
 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { EntryActions, EntryImageManager } from "@/components/entries";
 
 // Helper to format vehicle label same as dashboard
 function vehicleLabel(v: Vehicle): string {
@@ -34,69 +45,122 @@ function vehicleLabel(v: Vehicle): string {
     : `${v.year} ${v.make} ${v.model} — ${v.registrationNumber}`
 }
 
-// Mock trip data
-const mockTrips = [
+// Mock trip data with lock support
+const mockTrips: (Trip & { vehicle: { registration: string; make: string; model: string } })[] = [
   {
     id: "t1",
-    date: "2024-01-15",
+    organizationId: "org1",
+    vehicleId: "v1",
+    userId: "u1",
+    tripDate: new Date("2024-01-15"),
+    startTime: "08:00",
+    endTime: "10:00",
     startLocation: "Office - Sandton",
     endLocation: "Client Site - Pretoria",
     startOdometer: 45000,
     endOdometer: 45085,
-    distance: 85,
+    distanceKm: 85,
     purpose: "BUSINESS" as const,
-    description: "Client meeting at ABC Construction",
-    clientName: "ABC Construction",
+    routeDescription: "Client meeting at ABC Construction",
+    customerClientName: "ABC Construction",
+    reasonForTrip: "Quarterly review meeting",
+    tollCostsZar: 0,
+    parkingCostsZar: 25,
+    isLocked: false,
+    createdAt: new Date(),
+    updatedAt: new Date(),
     vehicle: { registration: "CA 123-456", make: "Toyota", model: "Hilux" },
   },
   {
     id: "t2",
-    date: "2024-01-15",
+    organizationId: "org1",
+    vehicleId: "v1",
+    userId: "u1",
+    tripDate: new Date("2024-01-15"),
+    startTime: "10:30",
+    endTime: "12:30",
     startLocation: "Client Site - Pretoria",
     endLocation: "Office - Sandton",
     startOdometer: 45085,
     endOdometer: 45170,
-    distance: 85,
+    distanceKm: 85,
     purpose: "BUSINESS" as const,
-    description: "Return from client meeting",
-    clientName: "ABC Construction",
+    routeDescription: "Return from client meeting",
+    customerClientName: "ABC Construction",
+    tollCostsZar: 0,
+    parkingCostsZar: 0,
+    isLocked: true,
+    lockedAt: new Date("2024-02-01"),
+    lockedReason: "Tax audit period",
+    createdAt: new Date(),
+    updatedAt: new Date(),
     vehicle: { registration: "CA 123-456", make: "Toyota", model: "Hilux" },
   },
   {
     id: "t3",
-    date: "2024-01-14",
+    organizationId: "org1",
+    vehicleId: "v1",
+    userId: "u1",
+    tripDate: new Date("2024-01-14"),
+    startTime: "07:00",
+    endTime: "07:30",
     startLocation: "Home - Johannesburg",
     endLocation: "Gym - Rosebank",
     startOdometer: 44980,
     endOdometer: 44995,
-    distance: 15,
+    distanceKm: 15,
     purpose: "PRIVATE" as const,
-    description: "Personal errand",
+    routeDescription: "Personal errand",
+    tollCostsZar: 0,
+    parkingCostsZar: 0,
+    isLocked: false,
+    createdAt: new Date(),
+    updatedAt: new Date(),
     vehicle: { registration: "CA 123-456", make: "Toyota", model: "Hilux" },
   },
   {
     id: "t4",
-    date: "2024-01-13",
+    organizationId: "org1",
+    vehicleId: "v1",
+    userId: "u1",
+    tripDate: new Date("2024-01-13"),
+    startTime: "09:00",
+    endTime: "11:00",
     startLocation: "Office - Sandton",
     endLocation: "Supplier - Midrand",
     startOdometer: 44850,
     endOdometer: 44920,
-    distance: 70,
+    distanceKm: 70,
     purpose: "BUSINESS" as const,
-    description: "Materials pickup",
-    clientName: "BuildIt Midrand",
+    routeDescription: "Materials pickup",
+    customerClientName: "BuildIt Midrand",
+    tollCostsZar: 15,
+    parkingCostsZar: 0,
+    isLocked: false,
+    createdAt: new Date(),
+    updatedAt: new Date(),
     vehicle: { registration: "CA 123-456", make: "Toyota", model: "Hilux" },
   },
   {
     id: "t5",
-    date: "2024-01-12",
+    organizationId: "org1",
+    vehicleId: "v1",
+    userId: "u1",
+    tripDate: new Date("2024-01-12"),
+    startTime: "14:00",
+    endTime: "16:00",
     startLocation: "Home - Johannesburg",
     endLocation: "Weekend getaway - Hartbeespoort",
     startOdometer: 44750,
     endOdometer: 44850,
-    distance: 100,
+    distanceKm: 100,
     purpose: "PRIVATE" as const,
-    description: "Family trip",
+    routeDescription: "Family trip",
+    tollCostsZar: 45,
+    parkingCostsZar: 0,
+    isLocked: false,
+    createdAt: new Date(),
+    updatedAt: new Date(),
     vehicle: { registration: "CA 123-456", make: "Toyota", model: "Hilux" },
   },
 ];
@@ -113,10 +177,14 @@ const mockSummary = {
 };
 
 export default function LogbookPage() {
+  const router = useRouter();
   const [selectedMonth, setSelectedMonth] = useState("all");
   const [selectedVehicle, setSelectedVehicle] = useState("all");
   const [filterPurpose, setFilterPurpose] = useState<"all" | "BUSINESS" | "PRIVATE">("all");
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [trips, setTrips] = useState(mockTrips);
+  const [editingTrip, setEditingTrip] = useState<typeof mockTrips[0] | null>(null);
+  const [tripImages, setTripImages] = useState<Record<string, EntryImage[]>>({});
 
   // Fetch vehicles for filter
   useEffect(() => {
@@ -124,7 +192,7 @@ export default function LogbookPage() {
       try {
         const response = await api.get<Vehicle[]>("/vehicles");
         console.log('Logbook - Vehicles response:', response);
-        const vehicleData = response.data || response;
+        const vehicleData = (response as any).data || response;
         if (Array.isArray(vehicleData)) {
           setVehicles(vehicleData);
           console.log('Logbook - Loaded vehicles:', vehicleData.length);
@@ -138,12 +206,78 @@ export default function LogbookPage() {
     fetchVehicles();
   }, []);
 
-  const filteredTrips = mockTrips.filter((trip) => {
+  const filteredTrips = trips.filter((trip) => {
     if (filterPurpose !== "all" && trip.purpose !== filterPurpose) return false;
-    // Note: mockTrips don't have vehicleId, so we'd need to add it to mock data
-    // For now, filtering by purpose only
     return true;
   });
+
+  const handleDeleteTrip = async (tripId: string) => {
+    try {
+      await api.delete(`/trips/${tripId}`);
+      setTrips(trips.filter(t => t.id !== tripId));
+    } catch (err) {
+      console.error("Failed to delete trip:", err);
+      // For demo, still remove locally
+      setTrips(trips.filter(t => t.id !== tripId));
+    }
+  };
+
+  const handleLockTrip = async (tripId: string, reason?: string) => {
+    try {
+      await api.patch(`/trips/${tripId}/lock`, { reason });
+      setTrips(trips.map(t => 
+        t.id === tripId 
+          ? { ...t, isLocked: true, lockedAt: new Date(), lockedReason: reason }
+          : t
+      ));
+    } catch (err) {
+      console.error("Failed to lock trip:", err);
+      // For demo, still update locally
+      setTrips(trips.map(t => 
+        t.id === tripId 
+          ? { ...t, isLocked: true, lockedAt: new Date(), lockedReason: reason }
+          : t
+      ));
+    }
+  };
+
+  const handleUnlockTrip = async (tripId: string) => {
+    try {
+      await api.patch(`/trips/${tripId}/unlock`, {});
+      setTrips(trips.map(t => 
+        t.id === tripId 
+          ? { ...t, isLocked: false, lockedAt: undefined, lockedReason: undefined }
+          : t
+      ));
+    } catch (err) {
+      console.error("Failed to unlock trip:", err);
+      // For demo, still update locally
+      setTrips(trips.map(t => 
+        t.id === tripId 
+          ? { ...t, isLocked: false, lockedAt: undefined, lockedReason: undefined }
+          : t
+      ));
+    }
+  };
+
+  const handleUploadTripImage = async (tripId: string, file: File, description?: string) => {
+    console.log('[v0] Uploading image for trip:', tripId, file.name);
+  };
+
+  const handleDeleteTripImage = async (tripId: string, imageId: string) => {
+    setTripImages(prev => ({
+      ...prev,
+      [tripId]: (prev[tripId] || []).filter(img => img.id !== imageId)
+    }));
+  };
+
+  const handleReuploadTripImage = async (tripId: string, imageId: string, file: File) => {
+    console.log('[v0] Reuploading trip image:', imageId, file.name);
+  };
+
+  const handleLockTripImage = async (tripId: string, imageId: string, reason?: string) => {
+    console.log('[v0] Locking trip image:', imageId);
+  };
 
   return (
     <div className="min-h-screen bg-background pb-24">
@@ -291,12 +425,23 @@ export default function LogbookPage() {
             <Card
               key={trip.id}
               className={cn(
-                "overflow-hidden",
+                "overflow-hidden relative",
                 trip.purpose === "BUSINESS"
                   ? "border-l-4 border-l-primary"
-                  : "border-l-4 border-l-amber-500"
+                  : "border-l-4 border-l-amber-500",
+                trip.isLocked && "border-amber-500/50"
               )}
             >
+              {/* Lock indicator */}
+              {trip.isLocked && (
+                <div className="absolute top-3 right-3 z-10">
+                  <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/30">
+                    <Lock className="h-3 w-3 mr-1" />
+                    Locked
+                  </Badge>
+                </div>
+              )}
+              
               <CardContent className="p-4">
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-2">
@@ -315,14 +460,14 @@ export default function LogbookPage() {
                       {trip.purpose}
                     </Badge>
                     <span className="text-sm text-muted-foreground">
-                      {new Date(trip.date).toLocaleDateString("en-ZA", {
+                      {new Date(trip.tripDate).toLocaleDateString("en-ZA", {
                         day: "numeric",
                         month: "short",
                         year: "numeric",
                       })}
                     </span>
                   </div>
-                  <span className="text-lg font-bold">{trip.distance} km</span>
+                  <span className="text-lg font-bold">{trip.distanceKm} km</span>
                 </div>
 
                 <div className="space-y-2">
@@ -336,21 +481,38 @@ export default function LogbookPage() {
                   </div>
                 </div>
 
-                {trip.clientName && (
+                {trip.customerClientName && (
                   <div className="mt-3 pt-3 border-t border-border/50">
                     <span className="text-xs text-muted-foreground">Client: </span>
-                    <span className="text-xs font-medium">{trip.clientName}</span>
+                    <span className="text-xs font-medium">{trip.customerClientName}</span>
                   </div>
                 )}
 
-                <div className="flex items-center gap-4 mt-3 pt-3 border-t border-border/50 text-xs text-muted-foreground">
-                  <div className="flex items-center gap-1">
-                    <Car className="h-3 w-3" />
-                    <span>{trip.vehicle.registration}</span>
+                <div className="flex items-center justify-between mt-3 pt-3 border-t border-border/50">
+                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-1">
+                      <Car className="h-3 w-3" />
+                      <span>{trip.vehicle.registration}</span>
+                    </div>
+                    <span>
+                      {trip.startOdometer.toLocaleString()} - {trip.endOdometer.toLocaleString()} km
+                    </span>
                   </div>
-                  <span>
-                    {trip.startOdometer.toLocaleString()} - {trip.endOdometer.toLocaleString()} km
-                  </span>
+                  
+                  {/* Action buttons */}
+                  <EntryActions
+                    entryId={trip.id}
+                    entryType="trip"
+                    isLocked={trip.isLocked ?? false}
+                    lockedAt={trip.lockedAt}
+                    lockedByName={trip.lockedByName}
+                    lockedReason={trip.lockedReason}
+                    onEdit={() => setEditingTrip(trip)}
+                    onDelete={() => handleDeleteTrip(trip.id)}
+                    onLock={(reason) => handleLockTrip(trip.id, reason)}
+                    onUnlock={() => handleUnlockTrip(trip.id)}
+                    variant="icons"
+                  />
                 </div>
               </CardContent>
             </Card>
@@ -368,6 +530,101 @@ export default function LogbookPage() {
           <span className="sr-only">Add Trip</span>
         </Button>
       </Link>
+
+      {/* Edit Trip Dialog */}
+      <Dialog open={!!editingTrip} onOpenChange={() => setEditingTrip(null)}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Trip</DialogTitle>
+            <DialogDescription>
+              {editingTrip && `${new Date(editingTrip.tripDate).toLocaleDateString('en-ZA')} - ${editingTrip.startLocation} to ${editingTrip.endLocation}`}
+            </DialogDescription>
+          </DialogHeader>
+          
+          {editingTrip && (
+            <div className="space-y-6 py-4">
+              {/* Trip Details */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm text-muted-foreground">Date</label>
+                  <p className="font-medium">{new Date(editingTrip.tripDate).toLocaleDateString('en-ZA')}</p>
+                </div>
+                <div>
+                  <label className="text-sm text-muted-foreground">Purpose</label>
+                  <p className="font-medium">{editingTrip.purpose}</p>
+                </div>
+                <div>
+                  <label className="text-sm text-muted-foreground">Start Location</label>
+                  <p className="font-medium">{editingTrip.startLocation}</p>
+                </div>
+                <div>
+                  <label className="text-sm text-muted-foreground">End Location</label>
+                  <p className="font-medium">{editingTrip.endLocation}</p>
+                </div>
+                <div>
+                  <label className="text-sm text-muted-foreground">Start Odometer</label>
+                  <p className="font-medium">{editingTrip.startOdometer.toLocaleString()} km</p>
+                </div>
+                <div>
+                  <label className="text-sm text-muted-foreground">End Odometer</label>
+                  <p className="font-medium">{editingTrip.endOdometer.toLocaleString()} km</p>
+                </div>
+                <div>
+                  <label className="text-sm text-muted-foreground">Distance</label>
+                  <p className="font-medium">{editingTrip.distanceKm} km</p>
+                </div>
+                <div>
+                  <label className="text-sm text-muted-foreground">Vehicle</label>
+                  <p className="font-medium">{editingTrip.vehicle.registration}</p>
+                </div>
+                {editingTrip.customerClientName && (
+                  <div>
+                    <label className="text-sm text-muted-foreground">Client</label>
+                    <p className="font-medium">{editingTrip.customerClientName}</p>
+                  </div>
+                )}
+                {editingTrip.routeDescription && (
+                  <div className="col-span-2">
+                    <label className="text-sm text-muted-foreground">Description</label>
+                    <p className="font-medium">{editingTrip.routeDescription}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Images Section */}
+              <div className="space-y-3">
+                <h3 className="font-medium">Trip Images</h3>
+                <EntryImageManager
+                  entryId={editingTrip.id}
+                  entryType="TRIP"
+                  images={tripImages[editingTrip.id] || []}
+                  onUpload={(file, desc) => handleUploadTripImage(editingTrip.id, file, desc)}
+                  onDelete={(imageId) => handleDeleteTripImage(editingTrip.id, imageId)}
+                  onReupload={(imageId, file) => handleReuploadTripImage(editingTrip.id, imageId, file)}
+                  onLock={(imageId, reason) => handleLockTripImage(editingTrip.id, imageId, reason)}
+                  disabled={editingTrip.isLocked}
+                />
+              </div>
+
+              {/* Edit Link */}
+              <div className="flex justify-end gap-2 pt-4 border-t">
+                <Button variant="outline" onClick={() => setEditingTrip(null)}>
+                  Close
+                </Button>
+                <Button 
+                  onClick={() => {
+                    router.push(`/dashboard/logbook/${editingTrip.id}/edit`);
+                    setEditingTrip(null);
+                  }}
+                  disabled={editingTrip.isLocked}
+                >
+                  Edit Details
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -177,6 +177,45 @@ export const FIXED_EXPENSE_LABELS: Record<FixedExpenseType, string> = {
 }
 
 // ============================================================================
+// LOCK STATUS
+// ============================================================================
+
+export interface LockInfo {
+  isLocked: boolean
+  lockedAt?: Date
+  lockedByUserId?: string
+  lockedByName?: string
+  lockedReason?: string
+}
+
+// ============================================================================
+// ENTRY IMAGES
+// ============================================================================
+
+export interface EntryImage {
+  id: string
+  organizationId: string
+  entryType: 'VEHICLE' | 'EXPENSE' | 'TRIP' | 'ODOMETER_VERIFICATION'
+  entryId: string
+  imageUrl: string
+  imageKey?: string
+  imageType: 'RECEIPT' | 'ODOMETER' | 'ATTACHMENT' | 'DAMAGE'
+  fileName?: string
+  fileSizeBytes?: number
+  mimeType?: string
+  description?: string
+  uploadedByUserId?: string
+  uploadedByName?: string
+  isLocked: boolean
+  lockedAt?: Date
+  lockedByUserId?: string
+  lockedByName?: string
+  lockedReason?: string
+  createdAt: Date
+  updatedAt: Date
+}
+
+// ============================================================================
 // BASE INTERFACES
 // ============================================================================
 
@@ -236,9 +275,18 @@ export interface Vehicle {
   insurancePolicyNumber?: string
   trackerSerial?: string
   notes?: string
+  // Lock fields
+  isLocked: boolean
+  lockedAt?: Date
+  lockedByUserId?: string
+  lockedReason?: string
+  // Timestamps
   createdAt: Date
   updatedAt: Date
   isActive: boolean
+  // Additional fields from views
+  lockedByName?: string
+  imageCount?: number
 }
 
 // ============================================================================
@@ -261,8 +309,17 @@ export interface Expense {
   supplierName?: string
   invoiceNumber?: string
   isTaxDeductible: boolean
+  // Lock fields
+  isLocked: boolean
+  lockedAt?: Date
+  lockedByUserId?: string
+  lockedReason?: string
+  // Timestamps
   createdAt: Date
   updatedAt: Date
+  // Additional fields from views
+  lockedByName?: string
+  imageCount?: number
 }
 
 export interface FuelLog {
@@ -365,8 +422,19 @@ export interface Trip {
   reasonForTrip?: string
   tollCostsZar: number
   parkingCostsZar: number
+  // Lock fields
+  isLocked: boolean
+  lockedAt?: Date
+  lockedByUserId?: string
+  lockedReason?: string
+  // Timestamps
   createdAt: Date
   updatedAt: Date
+  // Additional fields from views
+  lockedByName?: string
+  imageCount?: number
+  vehicleReg?: string
+  vehicleName?: string
 }
 
 export interface TaxYearSummary {
@@ -404,7 +472,18 @@ export interface OdometerVerification {
   gpsAccuracyMeters?: number
   deviceInfo?: string
   ipAddress?: string
+  // Lock fields
+  isLocked: boolean
+  lockedAt?: Date
+  lockedByUserId?: string
+  lockedReason?: string
+  // Timestamps
   createdAt: Date
+  // Additional fields from views
+  lockedByName?: string
+  additionalImageCount?: number
+  vehicleReg?: string
+  vehicleName?: string
 }
 
 // Helper to check if we're in Opening/Closing window
