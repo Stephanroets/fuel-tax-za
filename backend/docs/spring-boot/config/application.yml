@@ -1,0 +1,172 @@
+# ============================================================================
+# Vehicle Expense API - Spring Boot Configuration
+# ============================================================================
+
+spring:
+  application:
+    name: vehicle-expense-api
+  
+  # PostgreSQL Database (Supabase)
+  datasource:
+    url: jdbc:postgresql://${DB_HOST}:${DB_PORT:5432}/${DB_NAME}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      idle-timeout: 30000
+      connection-timeout: 20000
+      max-lifetime: 1800000
+  
+  # JPA / Hibernate
+  jpa:
+    hibernate:
+      ddl-auto: validate # Use Flyway/Liquibase for migrations
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        jdbc:
+          time_zone: Africa/Johannesburg
+  
+  # File Upload (for receipts)
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 10MB
+      max-request-size: 15MB
+  
+  # Jackson (JSON serialization)
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+    deserialization:
+      fail-on-unknown-properties: false
+    default-property-inclusion: non_null
+    time-zone: Africa/Johannesburg
+
+# ============================================================================
+# JWT Configuration
+# ============================================================================
+jwt:
+  secret: ${JWT_SECRET}
+  access-token-expiration: 900000 # 15 minutes (ms)
+  refresh-token-expiration: 604800000 # 7 days (ms)
+
+# ============================================================================
+# AWS S3 Configuration (Receipt Images)
+# ============================================================================
+aws:
+  s3:
+    bucket-name: ${AWS_S3_BUCKET}
+    region: ${AWS_REGION:af-south-1} # Cape Town region
+    access-key: ${AWS_ACCESS_KEY_ID}
+    secret-key: ${AWS_SECRET_ACCESS_KEY}
+  cloudfront:
+    domain: ${AWS_CLOUDFRONT_DOMAIN:}
+
+# ============================================================================
+# Brevo (Email) Configuration
+# ============================================================================
+brevo:
+  api-key: ${BREVO_API_KEY}
+  sender-email: noreply@vehicleexpense.co.za
+  sender-name: Vehicle Expense
+  templates:
+    verification: 1 # Template ID for email verification
+    password-reset: 2 # Template ID for password reset
+    welcome: 3 # Template ID for welcome email
+
+# ============================================================================
+# Server Configuration
+# ============================================================================
+server:
+  port: ${PORT:8080}
+  servlet:
+    context-path: /
+  compression:
+    enabled: true
+    mime-types: application/json,application/xml,text/html,text/xml,text/plain
+  error:
+    include-message: always
+    include-binding-errors: always
+
+# ============================================================================
+# Actuator (Health Checks)
+# ============================================================================
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: when_authorized
+
+# ============================================================================
+# Logging
+# ============================================================================
+logging:
+  level:
+    root: INFO
+    com.vehicleexpense: DEBUG
+    org.hibernate.SQL: WARN
+    org.hibernate.type.descriptor.sql: WARN
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+# ============================================================================
+# OpenAPI / Swagger
+# ============================================================================
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+
+---
+# ============================================================================
+# Production Profile
+# ============================================================================
+spring:
+  config:
+    activate:
+      on-profile: production
+  
+  datasource:
+    hikari:
+      maximum-pool-size: 20
+  
+  jpa:
+    show-sql: false
+
+logging:
+  level:
+    root: WARN
+    com.vehicleexpense: INFO
+
+---
+# ============================================================================
+# Development Profile
+# ============================================================================
+spring:
+  config:
+    activate:
+      on-profile: development
+  
+  jpa:
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+logging:
+  level:
+    root: INFO
+    com.vehicleexpense: DEBUG
+    org.hibernate.SQL: DEBUG

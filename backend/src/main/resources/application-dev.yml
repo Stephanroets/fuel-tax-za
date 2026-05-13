@@ -1,0 +1,71 @@
+# ============================================================================
+# Development Profile Configuration
+# PostgreSQL Local | Console Email | Local File Storage
+# ============================================================================
+
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+  # PostgreSQL Database (Local)
+  datasource:
+    url: jdbc:postgresql://localhost:5432/fuel_tax_za
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:DARKSTAR420}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 5
+      minimum-idle: 1
+      idle-timeout: 30000
+      connection-timeout: 20000
+
+  # JPA / Hibernate (Development settings)
+  jpa:
+    hibernate:
+      ddl-auto: validate  # Use validate with SQL schema
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        stat:
+          log-slow-queries: true
+          slow-query-log-threshold-millis: 1000
+
+  # Web
+  web:
+    resources:
+      static-locations:
+        - classpath:/static
+        - file:uploads/  # Serve local uploads
+
+# ============================================================================
+# Development Storage (Local Filesystem)
+# ============================================================================
+app:
+  storage:
+    local:
+      path: uploads
+      base-url: http://localhost:8080/uploads
+
+# ============================================================================
+# Logging (Verbose for development)
+# ============================================================================
+logging:
+  level:
+    root: INFO
+    com.vehicleexpense: DEBUG
+    org.springframework.security: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql: TRACE
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+
+# ============================================================================
+# CORS (Permissive for local dev)
+# ============================================================================
+cors:
+  allowed-origins:
+    - http://localhost:3000
+    - http://127.0.0.1:3000
+    - http://localhost:5173

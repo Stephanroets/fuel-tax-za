@@ -1,0 +1,114 @@
+# ============================================================================
+# Vehicle Expense API - Default Configuration
+# ============================================================================
+
+spring:
+  application:
+    name: vehicle-expense-api
+
+  # JPA / Hibernate
+  jpa:
+    hibernate:
+      ddl-auto: validate
+      show-sql: false
+      properties:
+        hibernate:
+          dialect: org.hibernate.dialect.PostgreSQLDialect
+          format_sql: true
+          jdbc:
+            time_zone: Africa/Johannesburg
+    datasource:
+      url: jdbc:postgresql://localhost:5432/fuel_tax_za
+      username: postgres
+      password: ${DB_PASSWORD:DARKSTAR420}
+      driver-class-name: org.postgresql.Driver
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        jdbc:
+          time_zone: Africa/Johannesburg
+
+  # File Upload (for receipts and photos)
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 10MB
+      max-request-size: 15MB
+
+  # Jackson (JSON serialization)
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+    deserialization:
+      fail-on-unknown-properties: false
+    default-property-inclusion: non_null
+    time-zone: Africa/Johannesburg
+
+# ============================================================================
+# JWT Configuration
+# ============================================================================
+jwt:
+  secret: ${JWT_SECRET:ZGVmYXVsdC1zZWNyZXQta2V5LWZvci1kZXZlbG9wbWVudC1vbmx5}
+  access-token-expiration: 86400000    # 24 hours (ms)
+  refresh-token-expiration: 604800000  # 7 days (ms)
+
+# ============================================================================
+# Storage Configuration
+# ============================================================================
+app:
+  storage:
+    local:
+      path: uploads
+      base-url: http://localhost:8080/uploads
+
+# ============================================================================
+# Server Configuration
+# ============================================================================
+server:
+  port: 8080
+  address: 0.0.0.0  # Bind to all interfaces (allows LAN access)
+  servlet:
+    context-path: /
+  compression:
+    enabled: true
+    mime-types: application/json,application/xml,text/html,text/xml,text/plain
+  error:
+    include-message: always
+    include-binding-errors: always
+
+# ============================================================================
+# Actuator (Health Checks)
+# ============================================================================
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: when_authorized
+
+# ============================================================================
+# Logging
+# ============================================================================
+logging:
+  level:
+    root: INFO
+    com.vehicleexpense: DEBUG
+    org.hibernate.SQL: WARN
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+# ============================================================================
+# OpenAPI / Swagger
+# ============================================================================
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
