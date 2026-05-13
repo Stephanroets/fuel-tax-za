@@ -1027,3 +1027,126 @@ export const getTyreRotationStatusLabel = (status: TyreRotationStatus): string =
       return 'OK'
   }
 }
+
+// ============================================================================
+// EXPIRY ALERTS SYSTEM
+// ============================================================================
+
+export type ExpiryItemType = 
+  | 'VEHICLE_LICENSE'
+  | 'DRIVERS_LICENSE'
+  | 'PDP'
+  | 'INSURANCE'
+  | 'TRACKING_CONTRACT'
+  | 'ROADWORTHY'
+  | 'OPERATING_LICENSE'
+
+export type ExpiryStatus = 'VALID' | 'UPCOMING' | 'WARNING' | 'CRITICAL' | 'EXPIRED'
+
+export interface ExpiryAlert {
+  itemType: ExpiryItemType
+  itemId: string
+  relatedId?: string
+  itemName: string
+  itemDescription: string
+  vehicleId?: string
+  vehicleRegistration?: string
+  vehicleName?: string
+  userId?: string
+  userName?: string
+  expiryDate: Date
+  daysUntilExpiry: number
+  expiryStatus: ExpiryStatus
+  renewalUrl?: string
+  isDismissed: boolean
+  dismissedAt?: Date
+  lastNotifiedAt?: Date
+}
+
+export interface ExpiryAlertCounts {
+  totalAlerts: number
+  expiredCount: number
+  criticalCount: number
+  warningCount: number
+  upcomingCount: number
+}
+
+export const EXPIRY_ITEM_TYPE_LABELS: Record<ExpiryItemType, string> = {
+  'VEHICLE_LICENSE': 'Vehicle License',
+  'DRIVERS_LICENSE': "Driver's License",
+  'PDP': 'PDP',
+  'INSURANCE': 'Insurance',
+  'TRACKING_CONTRACT': 'Tracking Contract',
+  'ROADWORTHY': 'Roadworthy',
+  'OPERATING_LICENSE': 'Operating License'
+}
+
+export const EXPIRY_ITEM_TYPE_ICONS: Record<ExpiryItemType, string> = {
+  'VEHICLE_LICENSE': 'car',
+  'DRIVERS_LICENSE': 'id-card',
+  'PDP': 'badge',
+  'INSURANCE': 'shield',
+  'TRACKING_CONTRACT': 'map-pin',
+  'ROADWORTHY': 'clipboard-check',
+  'OPERATING_LICENSE': 'file-text'
+}
+
+export const getExpiryStatusColor = (status: ExpiryStatus): string => {
+  switch (status) {
+    case 'EXPIRED':
+      return 'text-destructive bg-destructive/10 border-destructive'
+    case 'CRITICAL':
+      return 'text-red-600 bg-red-50 border-red-200'
+    case 'WARNING':
+      return 'text-amber-600 bg-amber-50 border-amber-200'
+    case 'UPCOMING':
+      return 'text-blue-600 bg-blue-50 border-blue-200'
+    default:
+      return 'text-green-600 bg-green-50 border-green-200'
+  }
+}
+
+export const getExpiryStatusLabel = (status: ExpiryStatus): string => {
+  switch (status) {
+    case 'EXPIRED':
+      return 'Expired'
+    case 'CRITICAL':
+      return 'Expires Soon'
+    case 'WARNING':
+      return 'Expiring'
+    case 'UPCOMING':
+      return 'Coming Up'
+    default:
+      return 'Valid'
+  }
+}
+
+export const getExpiryStatusBadgeVariant = (status: ExpiryStatus): 'destructive' | 'secondary' | 'outline' | 'default' => {
+  switch (status) {
+    case 'EXPIRED':
+    case 'CRITICAL':
+      return 'destructive'
+    case 'WARNING':
+      return 'secondary'
+    case 'UPCOMING':
+      return 'outline'
+    default:
+      return 'default'
+  }
+}
+
+export const formatDaysUntilExpiry = (days: number): string => {
+  if (days < 0) {
+    const absDays = Math.abs(days)
+    if (absDays === 1) return 'Expired yesterday'
+    if (absDays < 7) return `Expired ${absDays} days ago`
+    if (absDays < 30) return `Expired ${Math.floor(absDays / 7)} week${Math.floor(absDays / 7) > 1 ? 's' : ''} ago`
+    return `Expired ${Math.floor(absDays / 30)} month${Math.floor(absDays / 30) > 1 ? 's' : ''} ago`
+  }
+  if (days === 0) return 'Expires today'
+  if (days === 1) return 'Expires tomorrow'
+  if (days < 7) return `Expires in ${days} days`
+  if (days < 30) return `Expires in ${Math.floor(days / 7)} week${Math.floor(days / 7) > 1 ? 's' : ''}`
+  if (days < 60) return `Expires in ${Math.floor(days / 30)} month`
+  return `Expires in ${Math.floor(days / 30)} months`
+}

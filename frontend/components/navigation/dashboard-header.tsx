@@ -14,6 +14,15 @@ import {
   RotateCcw,
   X,
   Check,
+  Car,
+  IdCard,
+  Shield,
+  MapPin,
+  ClipboardCheck,
+  FileText,
+  BadgeCheck,
+  ExternalLink,
+  Calendar,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,14 +39,22 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/lib/contexts/auth-context";
 import { cn } from "@/lib/utils";
 import { useTyreRotationWarnings } from "@/lib/hooks/use-tyre-rotation-warnings";
+import { useExpiryAlerts } from "@/lib/hooks/use-expiry-alerts";
 import {
   TyreRotationWarning,
   getTyreRotationStatusColor,
   getTyreRotationStatusLabel,
   DRIVETRAIN_TYPE_LABELS,
+  ExpiryAlert,
+  ExpiryItemType,
+  getExpiryStatusColor,
+  getExpiryStatusLabel,
+  formatDaysUntilExpiry,
+  EXPIRY_ITEM_TYPE_LABELS,
 } from "@/lib/types/database";
 
 // ── Stored profile shape (written to localStorage at login / register) ────────
@@ -53,6 +70,28 @@ interface StoredProfile {
 interface DashboardHeaderProps {
   title?: string;
   showModeToggle?: boolean;
+}
+
+// Get icon for expiry item type
+function getExpiryItemIcon(itemType: ExpiryItemType) {
+  switch (itemType) {
+    case 'VEHICLE_LICENSE':
+      return Car;
+    case 'DRIVERS_LICENSE':
+      return IdCard;
+    case 'PDP':
+      return BadgeCheck;
+    case 'INSURANCE':
+      return Shield;
+    case 'TRACKING_CONTRACT':
+      return MapPin;
+    case 'ROADWORTHY':
+      return ClipboardCheck;
+    case 'OPERATING_LICENSE':
+      return FileText;
+    default:
+      return FileText;
+  }
 }
 
 function TyreRotationNotification({
@@ -162,6 +201,112 @@ function TyreRotationNotification({
   );
 }
 
+function ExpiryAlertNotification({
+  alert,
+  onDismiss,
+}: {
+  alert: ExpiryAlert;
+  onDismiss: (itemType: ExpiryItemType, itemId: string) => void;
+}) {
+  const Icon = getExpiryItemIcon(alert.itemType);
+  const statusColor = getExpiryStatusColor(alert.expiryStatus);
+  const statusLabel = getExpiryStatusLabel(alert.expiryStatus);
+  const expiryText = formatDaysUntilExpiry(alert.daysUntilExpiry);
+
+  return (
+    <div className={cn(
+      "flex flex-col gap-2 p-3 rounded-lg border transition-colors",
+      alert.expiryStatus === 'EXPIRED' 
+        ? "border-destructive/50 bg-destructive/5" 
+        : "border-border bg-card hover:bg-accent/50"
+    )}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <div
+            className={cn(
+              "p-1.5 rounded-full",
+              alert.expiryStatus === 'EXPIRED' || alert.expiryStatus === 'CRITICAL'
+                ? "bg-destructive/20"
+                : alert.expiryStatus === 'WARNING'
+                ? "bg-amber-500/20"
+                : "bg-blue-500/20"
+            )}
+          >
+            <Icon
+              className={cn(
+                "h-4 w-4",
+                alert.expiryStatus === 'EXPIRED' || alert.expiryStatus === 'CRITICAL'
+                  ? "text-destructive"
+                  : alert.expiryStatus === 'WARNING'
+                  ? "text-amber-600"
+                  : "text-blue-600"
+              )}
+            />
+          </div>
+          <div>
+            <p className="text-sm font-medium">{alert.itemName}</p>
+            <p className="text-xs text-muted-foreground">
+              {alert.vehicleRegistration || alert.userName || 'General'}
+            </p>
+          </div>
+        </div>
+        <Badge variant="outline" className={cn("text-xs shrink-0", statusColor)}>
+          {statusLabel}
+        </Badge>
+      </div>
+
+      <div className="text-xs text-muted-foreground">
+        {alert.itemDescription}
+      </div>
+
+      <div className="flex items-center gap-4 text-xs">
+        <div className="flex items-center gap-1">
+          <Calendar className="h-3 w-3 text-muted-foreground" />
+          <span className={cn(
+            "font-medium",
+            alert.daysUntilExpiry < 0 && "text-destructive"
+          )}>
+            {expiryText}
+          </span>
+        </div>
+        {alert.vehicleName && (
+          <div className="text-muted-foreground truncate">
+            {alert.vehicleName}
+          </div>
+        )}
+      </div>
+
+      <div className="flex gap-2 pt-1">
+        {alert.renewalUrl && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex-1 h-8 text-xs"
+            asChild
+          >
+            <a href={alert.renewalUrl} target="_blank" rel="noopener noreferrer">
+              <ExternalLink className="h-3 w-3 mr-1" />
+              Renew Online
+            </a>
+          </Button>
+        )}
+        <Button
+          variant="ghost"
+          size="sm"
+          className={cn(
+            "h-8 text-xs text-muted-foreground",
+            !alert.renewalUrl && "flex-1"
+          )}
+          onClick={() => onDismiss(alert.itemType, alert.itemId)}
+        >
+          <X className="h-3 w-3 mr-1" />
+          Dismiss
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export function DashboardHeader({
   title,
   showModeToggle = true,
@@ -170,18 +315,26 @@ export function DashboardHeader({
   const { logout } = useAuth();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<"expiry" | "tyres">("expiry");
 
   // Real user data — read from localStorage (set during login / register)
   const [profile, setProfile] = useState<StoredProfile>({});
 
   // Tyre rotation warnings
   const {
-    warnings,
-    warningCount,
-    criticalCount,
-    dismissWarning,
+    warnings: tyreWarnings,
+    warningCount: tyreWarningCount,
+    criticalCount: tyreCriticalCount,
+    dismissWarning: dismissTyreWarning,
     recordRotation,
   } = useTyreRotationWarnings();
+
+  // Expiry alerts
+  const {
+    activeAlerts: expiryAlerts,
+    counts: expiryCounts,
+    dismissAlert: dismissExpiryAlert,
+  } = useExpiryAlerts();
 
   useEffect(() => {
     try {
@@ -205,18 +358,16 @@ export function DashboardHeader({
     await logout();
   };
 
-  const handleDismissWarning = async (trackingId: string) => {
+  const handleDismissTyreWarning = async (trackingId: string) => {
     try {
-      await dismissWarning(trackingId);
+      await dismissTyreWarning(trackingId);
     } catch {
       // Handle error
     }
   };
 
   const handleRecordRotation = async (trackingId: string) => {
-    // In a real app, you'd prompt for the current odometer
-    // For now, we'll use the current vehicle odometer from the warning
-    const warning = warnings.find((w) => w.trackingId === trackingId);
+    const warning = tyreWarnings.find((w) => w.trackingId === trackingId);
     if (warning) {
       try {
         await recordRotation(trackingId, warning.currentVehicleOdometer);
@@ -226,8 +377,20 @@ export function DashboardHeader({
     }
   };
 
-  const totalNotifications = warningCount;
-  const hasCritical = criticalCount > 0;
+  const handleDismissExpiryAlert = (itemType: ExpiryItemType, itemId: string) => {
+    dismissExpiryAlert(itemType, itemId);
+  };
+
+  // Total notifications
+  const totalExpiryAlerts = expiryCounts.totalAlerts;
+  const totalTyreWarnings = tyreWarningCount;
+  const totalNotifications = totalExpiryAlerts + totalTyreWarnings;
+  
+  // Check for critical items
+  const hasExpiryExpired = expiryCounts.expiredCount > 0;
+  const hasExpiryCritical = expiryCounts.criticalCount > 0;
+  const hasTyreCritical = tyreCriticalCount > 0;
+  const hasCritical = hasExpiryExpired || hasExpiryCritical || hasTyreCritical;
 
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
@@ -262,7 +425,7 @@ export function DashboardHeader({
 
         {/* Right — notifications + user menu */}
         <div className="flex items-center gap-2">
-          {/* Notification Bell with Tyre Rotation Warnings */}
+          {/* Notification Bell with Expiry Alerts and Tyre Rotation Warnings */}
           <Popover open={notificationsOpen} onOpenChange={setNotificationsOpen}>
             <PopoverTrigger asChild>
               <Button
@@ -279,14 +442,14 @@ export function DashboardHeader({
                       hasCritical ? "bg-destructive animate-pulse" : "bg-warning"
                     )}
                   >
-                    {totalNotifications}
+                    {totalNotifications > 9 ? '9+' : totalNotifications}
                   </span>
                 )}
               </Button>
             </PopoverTrigger>
             <PopoverContent
               align="end"
-              className="w-80 p-0"
+              className="w-96 p-0"
               sideOffset={8}
             >
               <div className="flex items-center justify-between border-b border-border px-4 py-3">
@@ -298,7 +461,7 @@ export function DashboardHeader({
                     )}
                   />
                   <span className="font-semibold text-sm">
-                    Tyre Rotation Alerts
+                    Alerts & Reminders
                   </span>
                 </div>
                 {totalNotifications > 0 && (
@@ -311,38 +474,178 @@ export function DashboardHeader({
                 )}
               </div>
 
-              <div className="max-h-[400px] overflow-y-auto p-2">
-                {warnings.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-8 text-center">
-                    <div className="p-3 rounded-full bg-muted mb-3">
-                      <Check className="h-6 w-6 text-muted-foreground" />
+              <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "expiry" | "tyres")} className="w-full">
+                <TabsList className="w-full rounded-none border-b h-10 bg-transparent p-0">
+                  <TabsTrigger 
+                    value="expiry" 
+                    className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-10"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4" />
+                      <span>Expiring</span>
+                      {totalExpiryAlerts > 0 && (
+                        <Badge 
+                          variant={hasExpiryExpired || hasExpiryCritical ? "destructive" : "secondary"} 
+                          className="h-5 px-1.5 text-[10px]"
+                        >
+                          {totalExpiryAlerts}
+                        </Badge>
+                      )}
                     </div>
-                    <p className="text-sm font-medium">All caught up!</p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      No tyre rotation warnings at this time.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {warnings.map((warning) => (
-                      <TyreRotationNotification
-                        key={warning.trackingId}
-                        warning={warning}
-                        onDismiss={handleDismissWarning}
-                        onRecordRotation={handleRecordRotation}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
+                  </TabsTrigger>
+                  <TabsTrigger 
+                    value="tyres" 
+                    className="flex-1 rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent h-10"
+                  >
+                    <div className="flex items-center gap-2">
+                      <CircleDot className="h-4 w-4" />
+                      <span>Tyres</span>
+                      {totalTyreWarnings > 0 && (
+                        <Badge 
+                          variant={hasTyreCritical ? "destructive" : "secondary"} 
+                          className="h-5 px-1.5 text-[10px]"
+                        >
+                          {totalTyreWarnings}
+                        </Badge>
+                      )}
+                    </div>
+                  </TabsTrigger>
+                </TabsList>
 
-              {warnings.length > 0 && (
-                <div className="border-t border-border px-4 py-2">
-                  <p className="text-xs text-muted-foreground text-center">
-                    Warnings based on fuel purchase odometer readings
-                  </p>
-                </div>
-              )}
+                <TabsContent value="expiry" className="m-0">
+                  <div className="max-h-[400px] overflow-y-auto p-2">
+                    {expiryAlerts.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-8 text-center">
+                        <div className="p-3 rounded-full bg-muted mb-3">
+                          <Check className="h-6 w-6 text-muted-foreground" />
+                        </div>
+                        <p className="text-sm font-medium">All up to date!</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          No licenses, insurance, or certificates expiring soon.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {/* Group by status */}
+                        {expiryCounts.expiredCount > 0 && (
+                          <div className="mb-3">
+                            <p className="text-xs font-medium text-destructive mb-2 px-1">
+                              Expired ({expiryCounts.expiredCount})
+                            </p>
+                            {expiryAlerts
+                              .filter(a => a.expiryStatus === 'EXPIRED')
+                              .map((alert) => (
+                                <ExpiryAlertNotification
+                                  key={`${alert.itemType}-${alert.itemId}`}
+                                  alert={alert}
+                                  onDismiss={handleDismissExpiryAlert}
+                                />
+                              ))}
+                          </div>
+                        )}
+                        {expiryCounts.criticalCount > 0 && (
+                          <div className="mb-3">
+                            <p className="text-xs font-medium text-red-600 mb-2 px-1">
+                              Critical - Within 7 Days ({expiryCounts.criticalCount})
+                            </p>
+                            {expiryAlerts
+                              .filter(a => a.expiryStatus === 'CRITICAL')
+                              .map((alert) => (
+                                <ExpiryAlertNotification
+                                  key={`${alert.itemType}-${alert.itemId}`}
+                                  alert={alert}
+                                  onDismiss={handleDismissExpiryAlert}
+                                />
+                              ))}
+                          </div>
+                        )}
+                        {expiryCounts.warningCount > 0 && (
+                          <div className="mb-3">
+                            <p className="text-xs font-medium text-amber-600 mb-2 px-1">
+                              Warning - Within 30 Days ({expiryCounts.warningCount})
+                            </p>
+                            {expiryAlerts
+                              .filter(a => a.expiryStatus === 'WARNING')
+                              .map((alert) => (
+                                <ExpiryAlertNotification
+                                  key={`${alert.itemType}-${alert.itemId}`}
+                                  alert={alert}
+                                  onDismiss={handleDismissExpiryAlert}
+                                />
+                              ))}
+                          </div>
+                        )}
+                        {expiryCounts.upcomingCount > 0 && (
+                          <div className="mb-3">
+                            <p className="text-xs font-medium text-blue-600 mb-2 px-1">
+                              Coming Up - Within 60 Days ({expiryCounts.upcomingCount})
+                            </p>
+                            {expiryAlerts
+                              .filter(a => a.expiryStatus === 'UPCOMING')
+                              .map((alert) => (
+                                <ExpiryAlertNotification
+                                  key={`${alert.itemType}-${alert.itemId}`}
+                                  alert={alert}
+                                  onDismiss={handleDismissExpiryAlert}
+                                />
+                              ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  {expiryAlerts.length > 0 && (
+                    <div className="border-t border-border px-4 py-2">
+                      <p className="text-xs text-muted-foreground text-center">
+                        Renew online at{" "}
+                        <a 
+                          href="https://online.natis.gov.za/" 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-primary hover:underline"
+                        >
+                          NaTIS
+                        </a>
+                      </p>
+                    </div>
+                  )}
+                </TabsContent>
+
+                <TabsContent value="tyres" className="m-0">
+                  <div className="max-h-[400px] overflow-y-auto p-2">
+                    {tyreWarnings.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-8 text-center">
+                        <div className="p-3 rounded-full bg-muted mb-3">
+                          <Check className="h-6 w-6 text-muted-foreground" />
+                        </div>
+                        <p className="text-sm font-medium">All caught up!</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          No tyre rotation warnings at this time.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {tyreWarnings.map((warning) => (
+                          <TyreRotationNotification
+                            key={warning.trackingId}
+                            warning={warning}
+                            onDismiss={handleDismissTyreWarning}
+                            onRecordRotation={handleRecordRotation}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {tyreWarnings.length > 0 && (
+                    <div className="border-t border-border px-4 py-2">
+                      <p className="text-xs text-muted-foreground text-center">
+                        Based on fuel purchase odometer readings
+                      </p>
+                    </div>
+                  )}
+                </TabsContent>
+              </Tabs>
             </PopoverContent>
           </Popover>
 
