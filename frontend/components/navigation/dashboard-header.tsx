@@ -9,6 +9,11 @@ import {
   Settings,
   Building2,
   ChevronDown,
+  CircleDot,
+  AlertTriangle,
+  RotateCcw,
+  X,
+  Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,8 +24,21 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/lib/contexts/auth-context";
 import { cn } from "@/lib/utils";
+import { useTyreRotationWarnings } from "@/lib/hooks/use-tyre-rotation-warnings";
+import {
+  TyreRotationWarning,
+  getTyreRotationStatusColor,
+  getTyreRotationStatusLabel,
+  DRIVETRAIN_TYPE_LABELS,
+} from "@/lib/types/database";
 
 // ── Stored profile shape (written to localStorage at login / register) ────────
 interface StoredProfile {
@@ -37,6 +55,113 @@ interface DashboardHeaderProps {
   showModeToggle?: boolean;
 }
 
+function TyreRotationNotification({
+  warning,
+  onDismiss,
+  onRecordRotation,
+}: {
+  warning: TyreRotationWarning;
+  onDismiss: (id: string) => void;
+  onRecordRotation: (id: string) => void;
+}) {
+  const statusColor = getTyreRotationStatusColor(warning.rotationStatus);
+  const statusLabel = getTyreRotationStatusLabel(warning.rotationStatus);
+
+  return (
+    <div className="flex flex-col gap-2 p-3 rounded-lg border border-border bg-card hover:bg-accent/50 transition-colors">
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <div
+            className={cn(
+              "p-1.5 rounded-full",
+              warning.rotationStatus === "CRITICAL"
+                ? "bg-destructive/20"
+                : "bg-warning/20"
+            )}
+          >
+            <CircleDot
+              className={cn(
+                "h-4 w-4",
+                warning.rotationStatus === "CRITICAL"
+                  ? "text-destructive"
+                  : "text-warning"
+              )}
+            />
+          </div>
+          <div>
+            <p className="text-sm font-medium">{warning.vehicleRegistration}</p>
+            <p className="text-xs text-muted-foreground">{warning.vehicleName}</p>
+          </div>
+        </div>
+        <Badge variant="outline" className={cn("text-xs", statusColor)}>
+          {statusLabel}
+        </Badge>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2 text-xs">
+        <div>
+          <p className="text-muted-foreground">Tyres</p>
+          <p className="font-medium">{warning.tyreBrand}</p>
+        </div>
+        <div>
+          <p className="text-muted-foreground">Drivetrain</p>
+          <p className="font-medium">
+            {DRIVETRAIN_TYPE_LABELS[warning.drivetrainType]}
+          </p>
+        </div>
+        <div>
+          <p className="text-muted-foreground">Interval</p>
+          <p className="font-medium">
+            {warning.rotationIntervalKm.toLocaleString()} km
+          </p>
+        </div>
+        <div>
+          <p className="text-muted-foreground">
+            {warning.kmOverdue > 0 ? "Overdue" : "Due at"}
+          </p>
+          <p
+            className={cn(
+              "font-medium",
+              warning.kmOverdue > 0 && "text-destructive"
+            )}
+          >
+            {warning.kmOverdue > 0
+              ? `${warning.kmOverdue.toLocaleString()} km`
+              : `${warning.nextRotationOdometer.toLocaleString()} km`}
+          </p>
+        </div>
+      </div>
+
+      {warning.latestFuelOdometer && (
+        <div className="text-xs text-muted-foreground">
+          Latest fuel reading: {warning.latestFuelOdometer.toLocaleString()} km
+        </div>
+      )}
+
+      <div className="flex gap-2 pt-1">
+        <Button
+          variant="outline"
+          size="sm"
+          className="flex-1 h-8 text-xs"
+          onClick={() => onRecordRotation(warning.trackingId)}
+        >
+          <RotateCcw className="h-3 w-3 mr-1" />
+          Mark Rotated
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-8 text-xs text-muted-foreground"
+          onClick={() => onDismiss(warning.trackingId)}
+        >
+          <X className="h-3 w-3 mr-1" />
+          Dismiss
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export function DashboardHeader({
   title,
   showModeToggle = true,
@@ -44,15 +169,27 @@ export function DashboardHeader({
   // logout() is the one thing still valid from AuthContext (it clears localStorage)
   const { logout } = useAuth();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
 
   // Real user data — read from localStorage (set during login / register)
   const [profile, setProfile] = useState<StoredProfile>({});
+
+  // Tyre rotation warnings
+  const {
+    warnings,
+    warningCount,
+    criticalCount,
+    dismissWarning,
+    recordRotation,
+  } = useTyreRotationWarnings();
 
   useEffect(() => {
     try {
       const raw = localStorage.getItem("user_profile");
       if (raw) setProfile(JSON.parse(raw));
-    } catch {}
+    } catch {
+      // ignore
+    }
   }, []);
 
   const isFleet = profile.organizationMode === "FLEET";
@@ -67,6 +204,30 @@ export function DashboardHeader({
     setIsLoggingOut(true);
     await logout();
   };
+
+  const handleDismissWarning = async (trackingId: string) => {
+    try {
+      await dismissWarning(trackingId);
+    } catch {
+      // Handle error
+    }
+  };
+
+  const handleRecordRotation = async (trackingId: string) => {
+    // In a real app, you'd prompt for the current odometer
+    // For now, we'll use the current vehicle odometer from the warning
+    const warning = warnings.find((w) => w.trackingId === trackingId);
+    if (warning) {
+      try {
+        await recordRotation(trackingId, warning.currentVehicleOdometer);
+      } catch {
+        // Handle error
+      }
+    }
+  };
+
+  const totalNotifications = warningCount;
+  const hasCritical = criticalCount > 0;
 
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
@@ -101,15 +262,89 @@ export function DashboardHeader({
 
         {/* Right — notifications + user menu */}
         <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="relative touch-target"
-            aria-label="Notifications"
-          >
-            <Bell className="h-5 w-5" />
-            {/* Only show the red dot once real notifications exist */}
-          </Button>
+          {/* Notification Bell with Tyre Rotation Warnings */}
+          <Popover open={notificationsOpen} onOpenChange={setNotificationsOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="relative touch-target"
+                aria-label="Notifications"
+              >
+                <Bell className="h-5 w-5" />
+                {totalNotifications > 0 && (
+                  <span
+                    className={cn(
+                      "absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold text-white",
+                      hasCritical ? "bg-destructive animate-pulse" : "bg-warning"
+                    )}
+                  >
+                    {totalNotifications}
+                  </span>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent
+              align="end"
+              className="w-80 p-0"
+              sideOffset={8}
+            >
+              <div className="flex items-center justify-between border-b border-border px-4 py-3">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle
+                    className={cn(
+                      "h-4 w-4",
+                      hasCritical ? "text-destructive" : "text-warning"
+                    )}
+                  />
+                  <span className="font-semibold text-sm">
+                    Tyre Rotation Alerts
+                  </span>
+                </div>
+                {totalNotifications > 0 && (
+                  <Badge
+                    variant={hasCritical ? "destructive" : "secondary"}
+                    className="text-xs"
+                  >
+                    {totalNotifications}
+                  </Badge>
+                )}
+              </div>
+
+              <div className="max-h-[400px] overflow-y-auto p-2">
+                {warnings.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-8 text-center">
+                    <div className="p-3 rounded-full bg-muted mb-3">
+                      <Check className="h-6 w-6 text-muted-foreground" />
+                    </div>
+                    <p className="text-sm font-medium">All caught up!</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      No tyre rotation warnings at this time.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {warnings.map((warning) => (
+                      <TyreRotationNotification
+                        key={warning.trackingId}
+                        warning={warning}
+                        onDismiss={handleDismissWarning}
+                        onRecordRotation={handleRecordRotation}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {warnings.length > 0 && (
+                <div className="border-t border-border px-4 py-2">
+                  <p className="text-xs text-muted-foreground text-center">
+                    Warnings based on fuel purchase odometer readings
+                  </p>
+                </div>
+              )}
+            </PopoverContent>
+          </Popover>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -131,7 +366,7 @@ export function DashboardHeader({
                     <span className="text-sm font-medium">{displayName}</span>
                   ) : (
                     <span className="text-sm text-muted-foreground italic">
-                      Loading…
+                      Loading...
                     </span>
                   )}
                   <span className="text-xs text-muted-foreground truncate">
@@ -190,7 +425,7 @@ export function DashboardHeader({
                 className="text-destructive focus:text-destructive"
               >
                 <LogOut className="mr-2 h-4 w-4" />
-                {isLoggingOut ? "Signing out…" : "Sign out"}
+                {isLoggingOut ? "Signing out..." : "Sign out"}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

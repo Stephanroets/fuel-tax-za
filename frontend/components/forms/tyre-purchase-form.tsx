@@ -33,6 +33,7 @@ import {
   validateImageFile, 
   formatFileSize 
 } from '@/lib/utils/image-converter'
+import { addTyreRotationTracking } from '@/lib/hooks/use-tyre-rotation-warnings'
 
 const tyrePurchaseSchema = z.object({
   vehicleId: z.string().min(1, 'Select a vehicle'),
@@ -183,6 +184,22 @@ export function TyrePurchaseForm({ vehicles, onSubmit }: TyrePurchaseFormProps) 
     setIsSubmitting(true)
     try {
       await onSubmit(data, receiptImage)
+      
+      // If rotation tracking is enabled, save the tracking data
+      if (data.enableRotationTracking && data.drivetrainType && selectedVehicle) {
+        addTyreRotationTracking({
+          vehicleId: selectedVehicle.id,
+          vehicleRegistration: selectedVehicle.registrationNumber,
+          vehicleName: `${selectedVehicle.make} ${selectedVehicle.model}`,
+          tyreExpenseId: `exp_${Date.now()}`, // This would come from the API response in production
+          tyreBrand: data.brand,
+          tyreModel: data.model,
+          tyreSize: data.size,
+          installationDate: data.date,
+          installationOdometer: data.odometerReading,
+          drivetrainType: data.drivetrainType,
+        })
+      }
     } finally {
       setIsSubmitting(false)
     }

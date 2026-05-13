@@ -658,3 +658,82 @@ export const getTaxYearDateRange = (taxYear: number): DateRange => {
     to: new Date(taxYear + 1, 1, 28) // February 28/29
   }
 }
+
+// ============================================================================
+// TYRE ROTATION TRACKING
+// ============================================================================
+
+export type TyreRotationStatus = 'OK' | 'UPCOMING' | 'WARNING' | 'CRITICAL'
+
+export interface TyreRotationTracking {
+  id: string
+  organizationId: string
+  vehicleId: string
+  tyreExpenseId: string
+  drivetrainType: DrivetrainType
+  rotationIntervalKm: number
+  installationOdometer: number
+  lastRotationOdometer?: number
+  lastRotationDate?: Date
+  rotationCount: number
+  nextRotationOdometer: number
+  isActive: boolean
+  isDismissed: boolean
+  dismissedAt?: Date
+  dismissedByUserId?: string
+  createdAt: Date
+  updatedAt: Date
+}
+
+export interface TyreRotationWarning {
+  trackingId: string
+  organizationId: string
+  vehicleId: string
+  vehicleRegistration: string
+  vehicleName: string
+  tyreBrand: string
+  tyreModel?: string
+  tyreSize?: string
+  installationDate: Date
+  drivetrainType: DrivetrainType
+  rotationIntervalKm: number
+  installationOdometer: number
+  lastRotationOdometer?: number
+  lastRotationDate?: Date
+  rotationCount: number
+  nextRotationOdometer: number
+  currentVehicleOdometer: number
+  latestFuelOdometer?: number
+  kmOverdue: number
+  rotationStatus: TyreRotationStatus
+  isActive: boolean
+  isDismissed: boolean
+  dismissedAt?: Date
+  dismissedByName?: string
+}
+
+export const getTyreRotationStatusColor = (status: TyreRotationStatus): string => {
+  switch (status) {
+    case 'CRITICAL':
+      return 'text-destructive bg-destructive/10'
+    case 'WARNING':
+      return 'text-warning bg-warning/10'
+    case 'UPCOMING':
+      return 'text-primary bg-primary/10'
+    default:
+      return 'text-muted-foreground bg-muted'
+  }
+}
+
+export const getTyreRotationStatusLabel = (status: TyreRotationStatus): string => {
+  switch (status) {
+    case 'CRITICAL':
+      return 'Overdue - Rotate Now!'
+    case 'WARNING':
+      return 'Rotation Due'
+    case 'UPCOMING':
+      return 'Rotation Coming Up'
+    default:
+      return 'OK'
+  }
+}

@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { FuelType, FUEL_TYPE_LABELS, formatZAR } from '@/lib/types/database'
+import { saveFuelLogOdometer } from '@/lib/hooks/use-tyre-rotation-warnings'
 
 const fuelLogSchema = z.object({
   vehicleId: z.string().min(1, 'Select a vehicle'),
@@ -125,6 +126,10 @@ export function FuelLogForm({ vehicles, onSubmit }: FuelLogFormProps) {
     setIsSubmitting(true)
     try {
       await onSubmit(data, receiptImage || undefined)
+      
+      // Save fuel log odometer to trigger tyre rotation check
+      // This will update any active tyre rotation tracking for this vehicle
+      saveFuelLogOdometer(data.vehicleId, data.odometerReading, data.date)
     } finally {
       setIsSubmitting(false)
     }
