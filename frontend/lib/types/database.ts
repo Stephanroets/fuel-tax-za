@@ -334,7 +334,44 @@ export interface FuelLog {
   previousOdometer?: number
   kmSinceLastFill?: number
   efficiencyKmPerLiter?: number
+  // New consumption fields (L/100km - SA standard)
+  isBaselineFill?: boolean
+  consumptionLPer100km?: number
+  consumptionCalculatedAt?: Date
+  consumptionNotes?: string
   createdAt: Date
+}
+
+// Vehicle Fuel Consumption Stats
+export interface VehicleFuelConsumptionStats {
+  id: string
+  organizationId: string
+  vehicleId: string
+  // Totals
+  totalFuelLogs: number
+  totalFullTankFills: number
+  totalLiters: number
+  totalDistanceKm: number
+  totalFuelCostZar: number
+  // Averages
+  averageConsumptionLPer100km?: number
+  bestConsumptionLPer100km?: number
+  worstConsumptionLPer100km?: number
+  recentAverageConsumptionLPer100km?: number
+  // Last fill info
+  lastFillOdometer?: number
+  lastFillDate?: Date
+  lastFillFullTank?: boolean
+  // Timestamps
+  createdAt: Date
+  updatedAt: Date
+}
+
+// Extended vehicle with fuel consumption stats
+export interface VehicleWithFuelStats extends Vehicle {
+  fuelStats?: VehicleFuelConsumptionStats
+  costPerKmZar?: number
+  estimatedKmPerTank?: number
 }
 
 export interface MechanicService {
@@ -851,6 +888,50 @@ export const formatDistance = (km: number): string => {
 
 export const formatEfficiency = (kmPerLiter: number): string => {
   return `${kmPerLiter.toFixed(1)} km/L`
+}
+
+// Format fuel consumption in L/100km (South African standard)
+export const formatConsumption = (lPer100km: number): string => {
+  return `${lPer100km.toFixed(1)} L/100km`
+}
+
+// Convert between km/L and L/100km
+export const kmPerLiterToLPer100km = (kmPerLiter: number): number => {
+  if (kmPerLiter <= 0) return 0
+  return 100 / kmPerLiter
+}
+
+export const lPer100kmToKmPerLiter = (lPer100km: number): number => {
+  if (lPer100km <= 0) return 0
+  return 100 / lPer100km
+}
+
+// Get consumption rating (good/average/poor for SA context)
+export const getConsumptionRating = (lPer100km: number, fuelType: FuelType): {
+  rating: 'excellent' | 'good' | 'average' | 'poor' | 'unknown'
+  label: string
+  color: string
+} => {
+  if (!lPer100km || lPer100km <= 0) {
+    return { rating: 'unknown', label: 'No data', color: 'text-muted-foreground' }
+  }
+  
+  // Different thresholds for petrol vs diesel
+  const isPetrol = fuelType.toString().startsWith('PETROL')
+  
+  if (isPetrol) {
+    // Petrol thresholds (typically higher consumption)
+    if (lPer100km <= 6) return { rating: 'excellent', label: 'Excellent', color: 'text-green-600' }
+    if (lPer100km <= 8) return { rating: 'good', label: 'Good', color: 'text-emerald-500' }
+    if (lPer100km <= 10) return { rating: 'average', label: 'Average', color: 'text-yellow-500' }
+    return { rating: 'poor', label: 'High', color: 'text-red-500' }
+  } else {
+    // Diesel thresholds (typically more efficient)
+    if (lPer100km <= 5) return { rating: 'excellent', label: 'Excellent', color: 'text-green-600' }
+    if (lPer100km <= 7) return { rating: 'good', label: 'Good', color: 'text-emerald-500' }
+    if (lPer100km <= 9) return { rating: 'average', label: 'Average', color: 'text-yellow-500' }
+    return { rating: 'poor', label: 'High', color: 'text-red-500' }
+  }
 }
 
 // SA Tax Year runs March to February
