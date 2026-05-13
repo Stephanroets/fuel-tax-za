@@ -400,6 +400,215 @@ export interface FixedExpense {
 }
 
 // ============================================================================
+// FIXED & ADMIN EXPENSE - SEPARATE TABLES
+// ============================================================================
+
+// Insurance Premium
+export interface InsurancePremium {
+  id: string
+  expenseId: string
+  insurerName: string
+  policyNumber: string
+  policyType: 'COMPREHENSIVE' | 'THIRD_PARTY' | 'THIRD_PARTY_FIRE_THEFT'
+  coverageStartDate: Date
+  coverageEndDate: Date
+  monthlyPremiumZar: number
+  excessAmountZar?: number
+  brokerName?: string
+  brokerPhone?: string
+  claimPhoneNumber?: string
+  coverDetails?: string
+  // Lock fields
+  isLocked: boolean
+  lockedAt?: Date
+  lockedByUserId?: string
+  lockedReason?: string
+  createdAt: Date
+  updatedAt: Date
+}
+
+// Vehicle Tracking
+export interface VehicleTracking {
+  id: string
+  expenseId: string
+  providerName: string
+  subscriptionType: 'MONTHLY' | 'ANNUAL' | 'ONCE_OFF'
+  monthlyFeeZar: number
+  contractStartDate: Date
+  contractEndDate?: Date
+  deviceSerialNumber?: string
+  deviceType?: string
+  installationDate?: Date
+  recoveryIncluded: boolean
+  appLoginEmail?: string
+  supportPhoneNumber?: string
+  features?: string
+  // Lock fields
+  isLocked: boolean
+  lockedAt?: Date
+  lockedByUserId?: string
+  lockedReason?: string
+  createdAt: Date
+  updatedAt: Date
+}
+
+// E-Tolls (SANRAL)
+export interface ETollSanral {
+  id: string
+  expenseId: string
+  accountNumber?: string
+  tagSerialNumber?: string
+  vehicleRegistration: string
+  paymentMethod: 'ETAG' | 'VIOLATION' | 'ALTERNATE_ROUTE' | 'MONTHLY_PASS'
+  tollRoutes?: string
+  periodStartDate?: Date
+  periodEndDate?: Date
+  totalGantries?: number
+  totalAmountZar: number
+  vatAmountZar?: number
+  referenceNumber?: string
+  notes?: string
+  // Lock fields
+  isLocked: boolean
+  lockedAt?: Date
+  lockedByUserId?: string
+  lockedReason?: string
+  createdAt: Date
+  updatedAt: Date
+}
+
+// License Renewal
+export interface LicenseRenewal {
+  id: string
+  expenseId: string
+  licenseType: 'VEHICLE_LICENSE' | 'DRIVERS_LICENSE' | 'PDP' | 'OPERATING_LICENSE'
+  licenseNumber?: string
+  registrationAuthority?: string
+  previousExpiryDate?: Date
+  newExpiryDate: Date
+  renewalFeeZar: number
+  penaltiesZar?: number
+  arrearsZar?: number
+  transactionNumber?: string
+  renewalMethod: 'ONLINE' | 'POST_OFFICE' | 'LICENSING_DEPT' | 'AGENT'
+  processingDays?: number
+  notes?: string
+  // Lock fields
+  isLocked: boolean
+  lockedAt?: Date
+  lockedByUserId?: string
+  lockedReason?: string
+  createdAt: Date
+  updatedAt: Date
+}
+
+// Roadworthy Certificate
+export interface RoadworthyCertificate {
+  id: string
+  expenseId: string
+  testingStationName: string
+  testingStationAddress?: string
+  testingStationPhone?: string
+  testDate: Date
+  certificateNumber?: string
+  expiryDate?: Date
+  testResult: 'PASS' | 'FAIL' | 'CONDITIONAL_PASS'
+  testFeeZar: number
+  retestFeeZar?: number
+  inspectorName?: string
+  vehicleOdometer?: number
+  failureReasons?: string
+  conditionsApplied?: string
+  notes?: string
+  // Lock fields
+  isLocked: boolean
+  lockedAt?: Date
+  lockedByUserId?: string
+  lockedReason?: string
+  createdAt: Date
+  updatedAt: Date
+}
+
+// Other Fixed Expense
+export interface OtherFixedExpense {
+  id: string
+  expenseId: string
+  expenseDescription: string
+  categoryLabel?: string
+  providerName?: string
+  referenceNumber?: string
+  isRecurring: boolean
+  recurrenceFrequency?: 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'ANNUAL' | 'ONCE_OFF'
+  periodStartDate?: Date
+  periodEndDate?: Date
+  notes?: string
+  // Lock fields
+  isLocked: boolean
+  lockedAt?: Date
+  lockedByUserId?: string
+  lockedReason?: string
+  createdAt: Date
+  updatedAt: Date
+}
+
+// Union type for all Fixed & Admin expenses
+export type FixedAdminExpenseDetail = 
+  | { type: 'INSURANCE_PREMIUM'; data: InsurancePremium }
+  | { type: 'VEHICLE_TRACKING'; data: VehicleTracking }
+  | { type: 'ETOLL_SANRAL'; data: ETollSanral }
+  | { type: 'LICENSE_RENEWAL'; data: LicenseRenewal }
+  | { type: 'ROADWORTHY'; data: RoadworthyCertificate }
+  | { type: 'OTHER'; data: OtherFixedExpense }
+
+// Labels for new types
+export const INSURANCE_POLICY_TYPE_LABELS: Record<InsurancePremium['policyType'], string> = {
+  'COMPREHENSIVE': 'Comprehensive',
+  'THIRD_PARTY': 'Third Party Only',
+  'THIRD_PARTY_FIRE_THEFT': 'Third Party, Fire & Theft'
+}
+
+export const TRACKING_SUBSCRIPTION_LABELS: Record<VehicleTracking['subscriptionType'], string> = {
+  'MONTHLY': 'Monthly',
+  'ANNUAL': 'Annual',
+  'ONCE_OFF': 'Once-off Installation'
+}
+
+export const ETOLL_PAYMENT_METHOD_LABELS: Record<ETollSanral['paymentMethod'], string> = {
+  'ETAG': 'E-Tag',
+  'VIOLATION': 'Violation Notice',
+  'ALTERNATE_ROUTE': 'Alternate Route Payment',
+  'MONTHLY_PASS': 'Monthly Pass'
+}
+
+export const LICENSE_TYPE_LABELS: Record<LicenseRenewal['licenseType'], string> = {
+  'VEHICLE_LICENSE': 'Vehicle License Disc',
+  'DRIVERS_LICENSE': 'Driver\'s License',
+  'PDP': 'Professional Driving Permit (PDP)',
+  'OPERATING_LICENSE': 'Operating License'
+}
+
+export const LICENSE_RENEWAL_METHOD_LABELS: Record<LicenseRenewal['renewalMethod'], string> = {
+  'ONLINE': 'Online (NaTIS)',
+  'POST_OFFICE': 'Post Office',
+  'LICENSING_DEPT': 'Licensing Department',
+  'AGENT': 'Third-party Agent'
+}
+
+export const ROADWORTHY_RESULT_LABELS: Record<RoadworthyCertificate['testResult'], string> = {
+  'PASS': 'Pass',
+  'FAIL': 'Fail',
+  'CONDITIONAL_PASS': 'Conditional Pass'
+}
+
+export const RECURRENCE_FREQUENCY_LABELS: Record<NonNullable<OtherFixedExpense['recurrenceFrequency']>, string> = {
+  'WEEKLY': 'Weekly',
+  'MONTHLY': 'Monthly',
+  'QUARTERLY': 'Quarterly',
+  'ANNUAL': 'Annual',
+  'ONCE_OFF': 'Once-off'
+}
+
+// ============================================================================
 // TRIP & LOGBOOK INTERFACES
 // ============================================================================
 
