@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { Suspense, useState, useEffect } from 'react'
 
 // UUID generator for browsers without crypto.randomUUID
 function generateUUID(): string {
@@ -34,6 +34,14 @@ const categoryMap: Record<string, ExpenseCategory> = {
 }
 
 export default function NewExpensePage() {
+  return (
+    <Suspense>
+      <NewExpensePageContent />
+    </Suspense>
+  )
+}
+
+function NewExpensePageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const categoryParam = searchParams.get('category')
