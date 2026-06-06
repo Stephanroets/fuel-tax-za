@@ -27,6 +27,7 @@ export default function EditExpensePage({ params }: { params: Promise<{ id: stri
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [vehicles, setVehicles] = useState<any[]>([]);
+  const [pageError, setPageError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     description: "",
     amount: "",
@@ -104,7 +105,7 @@ export default function EditExpensePage({ params }: { params: Promise<{ id: stri
         });
       } catch (error) {
         console.error("Error fetching expense:", error);
-        router.push("/dashboard/expenses");
+        setPageError(error instanceof Error ? error.message : "Failed to load expense");
       } finally {
         setLoading(false);
       }
@@ -162,7 +163,7 @@ export default function EditExpensePage({ params }: { params: Promise<{ id: stri
       router.push(`/dashboard/expenses/${id}`);
     } catch (error) {
       console.error("Error updating expense:", error);
-      alert("Failed to update expense. Please try again.");
+      setPageError(error instanceof Error ? error.message : "Failed to update expense");
     } finally {
       setSaving(false);
     }
@@ -179,6 +180,17 @@ export default function EditExpensePage({ params }: { params: Promise<{ id: stri
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-lg">Loading expense details...</div>
+      </div>
+    );
+  }
+
+  if (pageError) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen gap-4">
+        <p className="text-destructive">{pageError}</p>
+        <Button variant="outline" onClick={() => router.push("/dashboard/expenses")}>
+          Back to Expenses
+        </Button>
       </div>
     );
   }

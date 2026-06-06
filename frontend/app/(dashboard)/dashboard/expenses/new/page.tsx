@@ -44,6 +44,7 @@ export default function NewExpensePage() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [submitError, setSubmitError] = useState<string | null>(null)
 
   // Fetch vehicles from API
   useEffect(() => {
@@ -117,7 +118,7 @@ export default function NewExpensePage() {
       router.push('/dashboard/expenses')
     } catch (error) {
       console.error('Fuel expense submission error:', error)
-      alert('Failed to save fuel expense. Please try again.')
+      setSubmitError(error instanceof Error ? error.message : 'Failed to save fuel expense')
     }
   }
 
@@ -170,7 +171,7 @@ export default function NewExpensePage() {
       router.push('/dashboard/expenses')
     } catch (error) {
       console.error('Mechanic service submission error:', error)
-      alert('Failed to save service record. Please try again.')
+      setSubmitError(error instanceof Error ? error.message : 'Failed to save service record')
     }
   }
 
@@ -223,7 +224,7 @@ export default function NewExpensePage() {
       router.push('/dashboard/expenses')
     } catch (error) {
       console.error('Maintenance topup submission error:', error)
-      alert('Failed to save maintenance record. Please try again.')
+      setSubmitError(error instanceof Error ? error.message : 'Failed to save maintenance record')
     }
   }
 
@@ -279,7 +280,7 @@ export default function NewExpensePage() {
       router.push('/dashboard/expenses')
     } catch (error) {
       console.error('Tyre purchase submission error:', error)
-      alert('Failed to save tyre purchase. Please try again.')
+      setSubmitError(error instanceof Error ? error.message : 'Failed to save tyre purchase')
     }
   }
 
@@ -333,7 +334,7 @@ export default function NewExpensePage() {
       router.push('/dashboard/expenses')
     } catch (error) {
       console.error('Fixed admin submission error:', error)
-      alert('Failed to save fixed expense. Please try again.')
+      setSubmitError(error instanceof Error ? error.message : 'Failed to save fixed expense')
     }
   }
 
@@ -386,7 +387,7 @@ export default function NewExpensePage() {
       router.push('/dashboard/expenses')
     } catch (error) {
       console.error('Car wash submission error:', error)
-      alert('Failed to save car wash expense. Please try again.')
+      setSubmitError(error instanceof Error ? error.message : 'Failed to save car wash expense')
     }
   }
 
@@ -492,6 +493,11 @@ export default function NewExpensePage() {
 
       {/* Content */}
       <div className="p-4 pb-24">
+        {submitError && (
+          <div className="rounded-md bg-destructive/10 p-3 mb-4 text-sm text-destructive">
+            {submitError}
+          </div>
+        )}
         {renderForm()}
       </div>
     </div>

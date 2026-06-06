@@ -35,15 +35,14 @@ public class ExpenseController {
             @RequestParam(value = "receipt", required = false) MultipartFile receiptImage,
             @AuthenticationPrincipal User user) {
         try {
-            // Parse the expense data from JSON string
             Map<String, Object> data = Map.of("expenseData", expenseData);
-            
-            // Create fuel expense
             Expense expense = expenseService.createFuelExpense(data, user, receiptImage);
             return ResponseEntity.ok(expense);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             log.error("Fuel expense creation error: {}", e.getMessage(), e);
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.internalServerError().body(Map.of("error", "Failed to create fuel expense"));
         }
     }
 
@@ -55,9 +54,11 @@ public class ExpenseController {
         try {
             Expense expense = expenseService.createMechanicService(expenseData, user, invoiceImage);
             return ResponseEntity.ok(expense);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             log.error("Mechanic service creation error: {}", e.getMessage(), e);
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.internalServerError().body(Map.of("error", "Failed to create mechanic service"));
         }
     }
 
@@ -69,9 +70,11 @@ public class ExpenseController {
         try {
             Expense expense = expenseService.createMaintenanceTopup(expenseData, user, receiptImage);
             return ResponseEntity.ok(expense);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             log.error("Maintenance topup creation error: {}", e.getMessage(), e);
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.internalServerError().body(Map.of("error", "Failed to create maintenance expense"));
         }
     }
 
@@ -83,9 +86,11 @@ public class ExpenseController {
         try {
             Expense expense = expenseService.createTyrePurchase(expenseData, user, receiptImage);
             return ResponseEntity.ok(expense);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             log.error("Tyre purchase creation error: {}", e.getMessage(), e);
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.internalServerError().body(Map.of("error", "Failed to create tyre purchase"));
         }
     }
 
@@ -97,9 +102,11 @@ public class ExpenseController {
         try {
             Expense expense = expenseService.createFixedExpense(expenseData, user, receiptImage);
             return ResponseEntity.ok(expense);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             log.error("Fixed expense creation error: {}", e.getMessage(), e);
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.internalServerError().body(Map.of("error", "Failed to create fixed expense"));
         }
     }
 
@@ -111,9 +118,11 @@ public class ExpenseController {
         try {
             Expense expense = expenseService.createCarWashExpense(expenseData, user, receiptImage);
             return ResponseEntity.ok(expense);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             log.error("Car wash expense creation error: {}", e.getMessage(), e);
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.internalServerError().body(Map.of("error", "Failed to create car wash expense"));
         }
     }
 
@@ -124,7 +133,7 @@ public class ExpenseController {
             return ResponseEntity.ok(expenses);
         } catch (Exception e) {
             log.error("Error fetching expenses: {}", e.getMessage(), e);
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.internalServerError().body(Map.of("error", "Failed to fetch expenses"));
         }
     }
 
@@ -134,45 +143,41 @@ public class ExpenseController {
             var expenses = expenseService.getUserExpenses(user);
             var expense = expenses.stream()
                 .filter(e -> e.getId().equals(id))
-                .findFirst()
-                .orElse(null);
-            if (expense == null) {
+                .findFirst();
+            if (expense.isEmpty()) {
                 return ResponseEntity.notFound().build();
             }
-            return ResponseEntity.ok(expense);
+            return ResponseEntity.ok(expense.get());
         } catch (Exception e) {
             log.error("Error fetching expense {}: {}", id, e.getMessage(), e);
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.internalServerError().body(Map.of("error", "Failed to fetch expense"));
         }
     }
 
     @PutMapping(value = "/{id}", consumes = {"application/json", "application/json;charset=UTF-8"}, produces = "application/json")
     public ResponseEntity<?> updateExpense(@PathVariable UUID id, @RequestBody Expense expenseData, @AuthenticationPrincipal User user) {
         try {
-            // Find the existing expense
             var expenses = expenseService.getUserExpenses(user);
             var existingExpense = expenses.stream()
                 .filter(e -> e.getId().equals(id))
-                .findFirst()
-                .orElse(null);
+                .findFirst();
             
-            if (existingExpense == null) {
+            if (existingExpense.isEmpty()) {
                 return ResponseEntity.notFound().build();
             }
             
-            // Update the expense with new data
-            existingExpense.setDescription(expenseData.getDescription());
-            existingExpense.setAmountZar(expenseData.getAmountZar());
-            existingExpense.setCategory(expenseData.getCategory());
-            existingExpense.setExpenseDate(expenseData.getExpenseDate());
-            existingExpense.setSupplierName(expenseData.getSupplierName());
+            var expense = existingExpense.get();
+            expense.setDescription(expenseData.getDescription());
+            expense.setAmountZar(expenseData.getAmountZar());
+            expense.setCategory(expenseData.getCategory());
+            expense.setExpenseDate(expenseData.getExpenseDate());
+            expense.setSupplierName(expenseData.getSupplierName());
             
-            // Save the updated expense
-            var updatedExpense = expenseService.updateExpense(existingExpense);
+            var updatedExpense = expenseService.updateExpense(expense);
             return ResponseEntity.ok(updatedExpense);
         } catch (Exception e) {
             log.error("Error updating expense {}: {}", id, e.getMessage(), e);
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.internalServerError().body(Map.of("error", "Failed to update expense"));
         }
     }
 
@@ -181,9 +186,11 @@ public class ExpenseController {
         try {
             expenseService.deleteExpense(id, user);
             return ResponseEntity.ok().body(Map.of("message", "Expense deleted successfully"));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(404).body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             log.error("Error deleting expense {}: {}", id, e.getMessage(), e);
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.internalServerError().body(Map.of("error", "Failed to delete expense"));
         }
     }
 }
