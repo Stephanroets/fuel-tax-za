@@ -4,12 +4,7 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { format } from 'date-fns'
-import { FileText, Camera, AlertCircle, CheckCircle2, CalendarIcon } from 'lucide-react'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { Calendar } from '@/components/ui/calendar'
-import { cn } from '@/lib/utils'
-import { Button } from '@/components/ui/button'
+import { FileText } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -25,13 +20,15 @@ import {
   FixedExpenseType, 
   FIXED_EXPENSE_LABELS, 
   FuelType,
-  formatZAR 
 } from '@/lib/types/database'
-import { 
-  processReceiptImage, 
-  validateImageFile, 
-  formatFileSize 
-} from '@/lib/utils/image-converter'
+import {
+  VehicleSelect,
+  DatePickerField,
+  TotalAmountDisplay,
+  ReceiptImageUpload,
+  SubmitButton,
+  useReceiptImage,
+} from './shared'
 
 const fixedAdminSchema = z.object({
   vehicleId: z.string().min(1, 'Select a vehicle'),
@@ -62,7 +59,6 @@ interface FixedAdminFormProps {
   onSubmit: (data: FixedAdminInput, receiptImage: File) => Promise<void>
 }
 
-// Only show the main expense types as per requirements
 const MAIN_EXPENSE_TYPES: FixedExpenseType[] = [
   FixedExpenseType.INSURANCE_PREMIUM,
   FixedExpenseType.VEHICLE_TRACKING,
@@ -74,14 +70,7 @@ const MAIN_EXPENSE_TYPES: FixedExpenseType[] = [
 
 export function FixedAdminForm({ vehicles, onSubmit }: FixedAdminFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [receiptImage, setReceiptImage] = useState<File | null>(null)
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
-  const [imageError, setImageError] = useState<string | null>(null)
-  const [isCompressing, setIsCompressing] = useState(false)
-  const [compressionInfo, setCompressionInfo] = useState<{
-    originalSize: number
-    compressedSize: number
-  } | null>(null)
+  const receipt = useReceiptImage()
 
   const {
     register,
@@ -102,60 +91,15 @@ export function FixedAdminForm({ vehicles, onSubmit }: FixedAdminFormProps) {
   const expenseType = watch('expenseType')
   const amountZar = watch('amountZar')
 
-  // Show insurance-specific fields
   const isInsurance = expenseType === FixedExpenseType.INSURANCE_PREMIUM
   const isTracking = expenseType === FixedExpenseType.VEHICLE_TRACKING
 
-  const handleImageCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-
-    setImageError(null)
-    setCompressionInfo(null)
-
-    // Validate file
-    const validation = validateImageFile(file)
-    if (!validation.valid) {
-      setImageError(validation.error || 'Invalid file')
-      return
-    }
-
-    setIsCompressing(true)
-
-    try {
-      // Process and compress to AVIF
-      const result = await processReceiptImage(file)
-      
-      // Create a new File from the blob
-      const compressedFile = new File(
-        [result.blob], 
-        file.name.replace(/\.[^.]+$/, '.avif'),
-        { type: result.format }
-      )
-
-      setReceiptImage(compressedFile)
-      setPreviewUrl(URL.createObjectURL(result.blob))
-      setCompressionInfo({
-        originalSize: result.originalSize,
-        compressedSize: result.convertedSize,
-      })
-    } catch (error) {
-      setImageError('Failed to process image. Please try again.')
-      console.error('Image compression error:', error)
-    } finally {
-      setIsCompressing(false)
-    }
-  }
-
   const handleFormSubmit = async (data: FixedAdminInput) => {
-    if (!receiptImage) {
-      setImageError('Receipt image is required')
-      return
-    }
+    if (!receipt.requireImage()) return
 
     setIsSubmitting(true)
     try {
-      await onSubmit(data, receiptImage)
+      await onSubmit(data, receipt.image!)
     } finally {
       setIsSubmitting(false)
     }
@@ -163,7 +107,6 @@ export function FixedAdminForm({ vehicles, onSubmit }: FixedAdminFormProps) {
 
   return (
     <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
-      {/* Fixed Expense Details */}
       <Card className="border-border/50">
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
@@ -172,30 +115,13 @@ export function FixedAdminForm({ vehicles, onSubmit }: FixedAdminFormProps) {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Vehicle */}
-          <div className="space-y-2">
-            <Label htmlFor="vehicleId">Vehicle</Label>
-            <Select
-              value={selectedVehicleId}
-              onValueChange={(value) => setValue('vehicleId', value)}
-            >
-              <SelectTrigger className="h-12 touch-target">
-                <SelectValue placeholder="Select vehicle" />
-              </SelectTrigger>
-              <SelectContent>
-                {vehicles.map((vehicle) => (
-                  <SelectItem key={vehicle.id} value={vehicle.id}>
-                    {vehicle.registrationNumber} - {vehicle.make} {vehicle.model}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {errors.vehicleId && (
-              <p className="text-sm text-destructive">{errors.vehicleId.message}</p>
-            )}
-          </div>
+          <VehicleSelect
+            vehicles={vehicles}
+            value={selectedVehicleId}
+            onValueChange={(value) => setValue('vehicleId', value)}
+            error={errors.vehicleId?.message}
+          />
 
-          {/* Expense Type - Large touch targets */}
           <div className="space-y-2">
             <Label htmlFor="expenseType">Expense Type</Label>
             <Select
@@ -215,7 +141,6 @@ export function FixedAdminForm({ vehicles, onSubmit }: FixedAdminFormProps) {
             </Select>
           </div>
 
-          {/* Amount */}
           <div className="space-y-2">
             <Label htmlFor="amountZar">Amount (R)</Label>
             <Input
@@ -231,17 +156,8 @@ export function FixedAdminForm({ vehicles, onSubmit }: FixedAdminFormProps) {
             )}
           </div>
 
-          {/* Total Display */}
-          {amountZar > 0 && (
-            <div className="rounded-lg bg-muted p-4">
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Total Amount</span>
-                <span className="text-2xl font-bold">{formatZAR(amountZar)}</span>
-              </div>
-            </div>
-          )}
+          <TotalAmountDisplay amount={amountZar} />
 
-          {/* Reference Number */}
           <div className="space-y-2">
             <Label htmlFor="referenceNumber">Reference Number</Label>
             <Input
@@ -251,7 +167,6 @@ export function FixedAdminForm({ vehicles, onSubmit }: FixedAdminFormProps) {
             />
           </div>
 
-          {/* Provider Name */}
           <div className="space-y-2">
             <Label htmlFor="providerName">
               {isInsurance ? 'Insurance Company' : isTracking ? 'Tracking Provider' : 'Provider (Optional)'}
@@ -269,7 +184,6 @@ export function FixedAdminForm({ vehicles, onSubmit }: FixedAdminFormProps) {
             />
           </div>
 
-          {/* Insurance/Tracking specific fields */}
           {(isInsurance || isTracking) && (
             <>
               <div className="space-y-2">
@@ -304,7 +218,6 @@ export function FixedAdminForm({ vehicles, onSubmit }: FixedAdminFormProps) {
             </>
           )}
 
-          {/* Notes */}
           <div className="space-y-2">
             <Label htmlFor="notes">Notes (Optional)</Label>
             <Textarea
@@ -316,93 +229,21 @@ export function FixedAdminForm({ vehicles, onSubmit }: FixedAdminFormProps) {
         </CardContent>
       </Card>
 
-      {/* Receipt Image - MANDATORY */}
-      <Card className="border-border/50">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Camera className="h-5 w-5 text-chart-4" />
-            Capture Receipt
-            <span className="text-destructive text-sm font-normal">(Required)</span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {previewUrl ? (
-            <div className="space-y-3">
-              <div className="relative">
-                <img
-                  src={previewUrl}
-                  alt="Receipt preview"
-                  className="w-full max-h-48 object-contain rounded-lg bg-muted"
-                />
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  className="absolute top-2 right-2"
-                  onClick={() => {
-                    setReceiptImage(null)
-                    setPreviewUrl(null)
-                    setCompressionInfo(null)
-                  }}
-                >
-                  Remove
-                </Button>
-              </div>
-              {compressionInfo && (
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <CheckCircle2 className="h-4 w-4 text-green-500" />
-                  <span>
-                    Compressed: {formatFileSize(compressionInfo.originalSize)} → {formatFileSize(compressionInfo.compressedSize)}
-                    ({Math.round((1 - compressionInfo.compressedSize / compressionInfo.originalSize) * 100)}% saved)
-                  </span>
-                </div>
-              )}
-            </div>
-          ) : (
-            <label className={`
-              flex flex-col items-center justify-center h-40 border-2 border-dashed rounded-lg cursor-pointer transition-colors
-              ${imageError ? 'border-destructive bg-destructive/5' : 'border-chart-4 hover:border-chart-4/80 hover:bg-chart-4/5'}
-            `}>
-              {isCompressing ? (
-                <>
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-chart-4 mb-2" />
-                  <span className="text-sm text-muted-foreground">Compressing image...</span>
-                </>
-              ) : (
-                <>
-                  <Camera className="h-10 w-10 text-chart-4 mb-2" />
-                  <span className="text-sm font-medium text-foreground">Tap to capture receipt</span>
-                  <span className="text-xs text-muted-foreground mt-1">Photo will be compressed automatically</span>
-                </>
-              )}
-              <input
-                type="file"
-                accept="image/*"
-                capture="environment"
-                onChange={handleImageCapture}
-                className="hidden"
-                disabled={isCompressing}
-              />
-            </label>
-          )}
-          {imageError && (
-            <div className="flex items-center gap-2 mt-2 text-sm text-destructive">
-              <AlertCircle className="h-4 w-4" />
-              <span>{imageError}</span>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <ReceiptImageUpload
+        previewUrl={receipt.previewUrl}
+        isCompressing={receipt.isCompressing}
+        compressionInfo={receipt.compressionInfo}
+        error={receipt.error}
+        onCapture={receipt.handleCapture}
+        onRemove={receipt.remove}
+        accentColor="chart-4"
+      />
 
-      {/* Submit Button */}
-      <Button
-        type="submit"
-        size="lg"
-        className="w-full h-14 text-lg touch-target-lg"
-        disabled={isSubmitting || !receiptImage}
-      >
-        {isSubmitting ? 'Saving...' : 'Save Expense'}
-      </Button>
+      <SubmitButton
+        isSubmitting={isSubmitting}
+        disabled={!receipt.image}
+        label="Save Expense"
+      />
     </form>
   )
 }
