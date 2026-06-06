@@ -2,7 +2,10 @@ import jwt from 'jsonwebtoken'
 import { cookies } from 'next/headers'
 import { UserRole, OrganizationMode, type JWTPayload } from '@/lib/types/database'
 
-const JWT_SECRET = process.env.JWT_SECRET || Buffer.from('ZGVmYXVsdC1zZWNyZXQta2V5LWZvci1kZXZlbG9wbWVudC1vbmx5', 'base64').toString()
+if (!process.env.JWT_SECRET) {
+  throw new Error('JWT_SECRET environment variable is required')
+}
+const JWT_SECRET = process.env.JWT_SECRET
 
 const ACCESS_TOKEN_EXPIRY = '15m'
 const REFRESH_TOKEN_EXPIRY = '7d'

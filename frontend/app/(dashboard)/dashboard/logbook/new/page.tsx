@@ -9,8 +9,7 @@ export default function NewTripPage() {
   const router = useRouter();
 
   const handleSubmit = async (data: Parameters<typeof TripLogForm>[0] extends { onSubmit?: (data: infer T) => unknown } ? T : never) => {
-    // In production, this would call the API
-    console.log("Trip data:", data);
+    // TODO: call the trips API endpoint
     
     // Simulate API call
     await new Promise((resolve) => setTimeout(resolve, 1000));

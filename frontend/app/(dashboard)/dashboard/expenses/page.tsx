@@ -70,7 +70,6 @@ export default function ExpensesPage() {
     const fetchExpenses = async () => {
       try {
         const response = await api.get('/expenses')
-        console.log('Expenses - Backend response:', response)
         const expenseData = response.data || response
         if (Array.isArray(expenseData)) {
           const loadedExpenses = expenseData.map((expense: any) => ({
@@ -83,7 +82,6 @@ export default function ExpensesPage() {
             supplierName: expense.supplierName,
           }))
           setExpenses(loadedExpenses)
-          console.log('Loaded expenses from backend:', loadedExpenses.length)
         } else {
           console.warn('Expenses - Invalid backend data:', expenseData)
           setExpenses([])
@@ -101,11 +99,9 @@ export default function ExpensesPage() {
     const fetchVehicles = async () => {
       try {
         const response = await api.get<Vehicle[]>('/vehicles')
-        console.log('Expenses - Vehicles response:', response)
         const vehicleData = response.data || response
         if (Array.isArray(vehicleData)) {
           setVehicles(vehicleData)
-          console.log('Expenses - Loaded vehicles:', vehicleData.length)
         } else {
           console.warn('Expenses - Invalid vehicles data:', vehicleData)
         }

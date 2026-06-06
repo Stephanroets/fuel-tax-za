@@ -123,11 +123,9 @@ export default function LogbookPage() {
     const fetchVehicles = async () => {
       try {
         const response = await api.get<Vehicle[]>("/vehicles");
-        console.log('Logbook - Vehicles response:', response);
         const vehicleData = response.data || response;
         if (Array.isArray(vehicleData)) {
           setVehicles(vehicleData);
-          console.log('Logbook - Loaded vehicles:', vehicleData.length);
         } else {
           console.warn('Logbook - Invalid vehicles data:', vehicleData);
         }

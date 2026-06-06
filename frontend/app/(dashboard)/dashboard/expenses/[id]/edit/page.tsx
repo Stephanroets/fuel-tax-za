@@ -74,9 +74,6 @@ export default function EditExpensePage({ params }: { params: Promise<{ id: stri
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         
-        console.log("Edit page - Full expense data:", data);
-        console.log("Edit page - Fuel log data:", data.fuelLog);
-        
         if (!data) {
           console.error("No expense data received");
           router.push("/dashboard/expenses");

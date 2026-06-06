@@ -1,4 +1,5 @@
 import bcrypt from 'bcryptjs'
+import { randomBytes, randomInt } from 'crypto'
 
 const SALT_ROUNDS = 12
 
@@ -17,20 +18,15 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
 }
 
 /**
- * Generate a random token for email verification or password reset
+ * Generate a cryptographically secure random token for email verification or password reset
  */
 export function generateToken(): string {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
-  let token = ''
-  for (let i = 0; i < 64; i++) {
-    token += chars.charAt(Math.floor(Math.random() * chars.length))
-  }
-  return token
+  return randomBytes(48).toString('base64url')
 }
 
 /**
- * Generate a short numeric code for verification
+ * Generate a cryptographically secure short numeric code for verification
  */
 export function generateVerificationCode(): string {
-  return Math.floor(100000 + Math.random() * 900000).toString()
+  return randomInt(100000, 999999).toString()
 }

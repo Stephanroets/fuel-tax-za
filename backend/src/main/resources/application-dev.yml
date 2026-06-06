@@ -12,7 +12,7 @@ spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/fuel_tax_za
     username: ${DB_USERNAME:postgres}
-    password: ${DB_PASSWORD:DARKSTAR420}
+    password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
     hikari:
       maximum-pool-size: 5
@@ -60,6 +60,15 @@ logging:
     org.hibernate.type.descriptor.sql: TRACE
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+
+# ============================================================================
+# OpenAPI / Swagger (enabled for dev only)
+# ============================================================================
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
 
 # ============================================================================
 # CORS (Permissive for local dev)
