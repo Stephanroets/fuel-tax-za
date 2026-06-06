@@ -4,12 +4,8 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { format } from 'date-fns'
-import { Fuel, Camera, MapPin, CalendarIcon } from 'lucide-react'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { Calendar } from '@/components/ui/calendar'
+import { Fuel, Camera, MapPin } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
@@ -22,6 +18,11 @@ import {
 } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { FuelType, FUEL_TYPE_LABELS, formatZAR } from '@/lib/types/database'
+import {
+  VehicleSelect,
+  DatePickerField,
+  SubmitButton,
+} from './shared'
 
 const fuelLogSchema = z.object({
   vehicleId: z.string().min(1, 'Select a vehicle'),
@@ -51,9 +52,7 @@ interface FuelLogFormProps {
   onSubmit: (data: FuelLogInput, receiptImage?: File) => Promise<void>
 }
 
-// Helper function to get available fuel types based on vehicle fuel type
 function getAvailableFuelTypes(vehicleFuelType: FuelType): FuelType[] {
-  // Determine fuel category based on vehicle's fuel type
   const fuelTypeStr = vehicleFuelType.toString()
 
   if (fuelTypeStr.startsWith('PETROL')) {
@@ -64,7 +63,6 @@ function getAvailableFuelTypes(vehicleFuelType: FuelType): FuelType[] {
     return [FuelType.DIESEL_10PPM, FuelType.DIESEL_50PPM, FuelType.DIESEL_500PPM]
   }
 
-  // Default to all fuel types if can't determine
   return Object.values(FuelType)
 }
 
@@ -100,15 +98,12 @@ export function FuelLogForm({ vehicles, onSubmit }: FuelLogFormProps) {
     : Object.values(FuelType)
   const totalAmount = liters && pricePerLiter ? liters * pricePerLiter : 0
 
-  // Update fuel type when vehicle changes
   const handleVehicleChange = (vehicleId: string) => {
     const vehicle = vehicles.find(v => v.id === vehicleId)
     if (vehicle) {
       setValue('vehicleId', vehicleId)
-      // Get available fuel types for this vehicle and set to first one
       const available = getAvailableFuelTypes(vehicle.fuelType)
       setValue('fuelType', available[0] || vehicle.fuelType)
-      // Set odometer to current vehicle odometer as default
       setValue('odometerReading', vehicle.currentOdometer)
     }
   }
@@ -132,7 +127,6 @@ export function FuelLogForm({ vehicles, onSubmit }: FuelLogFormProps) {
 
   return (
     <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
-      {/* Vehicle Selection */}
       <Card className="border-border/50">
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
@@ -141,60 +135,19 @@ export function FuelLogForm({ vehicles, onSubmit }: FuelLogFormProps) {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Vehicle */}
-          <div className="space-y-2">
-            <Label htmlFor="vehicleId">Vehicle</Label>
-            <Select
-              value={selectedVehicleId}
-              onValueChange={handleVehicleChange}
-            >
-              <SelectTrigger className="h-12 touch-target">
-                <SelectValue placeholder="Select vehicle" />
-              </SelectTrigger>
-              <SelectContent>
-                {vehicles.map((vehicle) => (
-                  <SelectItem key={vehicle.id} value={vehicle.id}>
-                    {vehicle.registrationNumber} - {vehicle.make} {vehicle.model}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {errors.vehicleId && (
-              <p className="text-sm text-destructive">{errors.vehicleId.message}</p>
-            )}
-          </div>
+          <VehicleSelect
+            vehicles={vehicles}
+            value={selectedVehicleId}
+            onValueChange={handleVehicleChange}
+            error={errors.vehicleId?.message}
+          />
 
-          {/* Date */}
-          <div className="space-y-2">
-            <Label>Date</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className={cn(
-                    'w-full h-12 touch-target justify-start text-left font-normal',
-                    !watch('date') && 'text-muted-foreground'
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {watch('date') ? format(watch('date'), 'PPP') : <span>Pick a date</span>}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={watch('date')}
-                  onSelect={(date) => setValue('date', date || new Date())}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
-            {errors.date && (
-              <p className="text-sm text-destructive">{errors.date.message}</p>
-            )}
-          </div>
+          <DatePickerField
+            value={watch('date')}
+            onChange={(date) => setValue('date', date)}
+            error={errors.date?.message}
+          />
 
-          {/* Fuel Type */}
           <div className="space-y-2">
             <Label htmlFor="fuelType">Fuel Type</Label>
             <Select
@@ -214,7 +167,6 @@ export function FuelLogForm({ vehicles, onSubmit }: FuelLogFormProps) {
             </Select>
           </div>
 
-          {/* Liters and Price - Side by side */}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="liters">Liters</Label>
@@ -246,7 +198,6 @@ export function FuelLogForm({ vehicles, onSubmit }: FuelLogFormProps) {
             </div>
           </div>
 
-          {/* Total Amount Display */}
           {totalAmount > 0 && (
             <div className="rounded-lg bg-muted p-4">
               <div className="flex items-center justify-between">
@@ -256,7 +207,6 @@ export function FuelLogForm({ vehicles, onSubmit }: FuelLogFormProps) {
             </div>
           )}
 
-          {/* Odometer */}
           <div className="space-y-2">
             <Label htmlFor="odometerReading">Odometer (km)</Label>
             <Input
@@ -277,7 +227,6 @@ export function FuelLogForm({ vehicles, onSubmit }: FuelLogFormProps) {
             )}
           </div>
 
-          {/* Full Tank Toggle */}
           <div className="flex items-center justify-between rounded-lg border border-border p-4">
             <div>
               <Label htmlFor="fullTank" className="text-base">Full Tank</Label>
@@ -322,7 +271,7 @@ export function FuelLogForm({ vehicles, onSubmit }: FuelLogFormProps) {
         </CardContent>
       </Card>
 
-      {/* Receipt Image */}
+      {/* Receipt Image (Optional for fuel) */}
       <Card className="border-border/50">
         <CardHeader className="pb-3">
           <CardTitle className="text-base flex items-center gap-2">
@@ -367,15 +316,10 @@ export function FuelLogForm({ vehicles, onSubmit }: FuelLogFormProps) {
         </CardContent>
       </Card>
 
-      {/* Submit Button */}
-      <Button
-        type="submit"
-        size="lg"
-        className="w-full h-14 text-lg touch-target-lg"
-        disabled={isSubmitting}
-      >
-        {isSubmitting ? 'Saving...' : 'Save Fuel Log'}
-      </Button>
+      <SubmitButton
+        isSubmitting={isSubmitting}
+        label="Save Fuel Log"
+      />
     </form>
   )
 }

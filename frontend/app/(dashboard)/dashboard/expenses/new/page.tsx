@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 
-// UUID generator for browsers without crypto.randomUUID
 function generateUUID(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
     const r = Math.random() * 16 | 0
@@ -23,6 +22,7 @@ import { FixedAdminForm } from '@/components/forms/fixed-admin-form'
 import { CarWashForm } from '@/components/forms/car-wash-form'
 import { ExpenseCategory, Vehicle } from '@/lib/types/database'
 import { api } from '@/lib/api/client'
+import { submitExpense } from '@/components/forms/shared'
 
 const categoryMap: Record<string, ExpenseCategory> = {
   fuel: ExpenseCategory.FUEL_LOG,
@@ -45,7 +45,6 @@ export default function NewExpensePage() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Fetch vehicles from API
   useEffect(() => {
     const fetchVehicles = async () => {
       try {
@@ -63,332 +62,87 @@ export default function NewExpensePage() {
     fetchVehicles()
   }, [])
 
-  const handleFuelLogSubmit = async (data: unknown, receiptImage?: File) => {
-    try {
-      const expenseData = data as Record<string, unknown>
-      
-      // Calculate total cost from liters and price per liter
-      const liters = Number(expenseData.liters) || 0
-      const pricePerLiter = Number(expenseData.pricePerLiter) || 0
-      const totalCost = liters * pricePerLiter
-      
-      // Get vehicle registration
-      const vehicle = vehicles.find(v => v.id === expenseData.vehicleId)
-      const vehicleReg = vehicle?.registrationNumber || 'Unknown'
-      
-      // Serialize date properly and add calculated fields
-      const dataToSend = {
-        ...expenseData,
-        date: expenseData.date instanceof Date 
-          ? expenseData.date.toISOString() 
-          : new Date().toISOString(),
-        totalCost: totalCost,
-        amount: totalCost,
-        description: expenseData.stationName 
-          ? `Fuel at ${expenseData.stationName}` 
-          : 'Fuel Purchase',
-        vehicleReg: vehicleReg,
-        supplierName: expenseData.stationName,
+  const createSubmitHandler = (
+    endpoint: string,
+    amountField: string | string[],
+    descriptionFn: (data: Record<string, unknown>) => string,
+    supplierField?: string,
+    errorLabel = 'expense',
+  ) => {
+    return async (data: unknown, receiptImage?: File | null) => {
+      try {
+        await submitExpense({
+          data: data as Record<string, unknown>,
+          vehicles,
+          receiptImage: receiptImage ?? null,
+          endpoint,
+          amountField,
+          descriptionFn,
+          supplierField,
+        })
+        router.push('/dashboard/expenses')
+      } catch (err) {
+        console.error(`${errorLabel} submission error:`, err)
+        alert(`Failed to save ${errorLabel}. Please try again.`)
       }
-      
-      const formData = new FormData()
-      formData.append('data', JSON.stringify(dataToSend))
-      if (receiptImage) formData.append('receipt', receiptImage)
-      
-      const token = localStorage.getItem('jwt_token')
-      const response = await fetch('/api/expenses/fuel', {
-        method: 'POST',
-        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
-        body: formData
-      })
-      
-      if (!response.ok) {
-        const errorText = await response.text()
-        throw new Error(`Failed to save fuel expense: ${errorText}`)
-      }
-      
-      const newExpense = await response.json()
-      
-      // Store in localStorage for persistence
-      const existingExpenses = JSON.parse(localStorage.getItem('expenses') || '[]')
-      existingExpenses.push(newExpense)
-      localStorage.setItem('expenses', JSON.stringify(existingExpenses))
-      
-      router.push('/dashboard/expenses')
-    } catch (error) {
-      console.error('Fuel expense submission error:', error)
-      alert('Failed to save fuel expense. Please try again.')
     }
   }
 
-  const handleMechanicServiceSubmit = async (data: unknown, invoiceImage: File) => {
-    try {
-      const expenseData = data as Record<string, unknown>
-      
-      // Serialize date properly
-      const expenseDate = expenseData.date instanceof Date 
-        ? expenseData.date.toISOString() 
-        : new Date().toISOString()
-      
-      // Get vehicle registration
-      const vehicle = vehicles.find(v => v.id === expenseData.vehicleId)
-      const vehicleReg = vehicle?.registrationNumber || 'Unknown'
-      
-      // Prepare data for API
-      const dataToSend = {
-        ...expenseData,
-        date: expenseDate,
-        amount: (expenseData.totalCostZar as number) || 0,
-        description: (expenseData.workDescription as string) || 'Mechanic Service',
-        vehicleReg: vehicleReg,
-        supplierName: expenseData.workshopName as string,
-      }
-      
-      const formData = new FormData()
-      formData.append('data', JSON.stringify(dataToSend))
-      if (invoiceImage) formData.append('receipt', invoiceImage)
-      
-      const token = localStorage.getItem('jwt_token')
-      const response = await fetch('/api/expenses/mechanic', {
-        method: 'POST',
-        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
-        body: formData
-      })
-      
-      if (!response.ok) {
-        const errorText = await response.text()
-        throw new Error(`Failed to save mechanic service: ${errorText}`)
-      }
-      
-      const newExpense = await response.json()
-      
-      // Store in localStorage for persistence
-      const existingExpenses = JSON.parse(localStorage.getItem('expenses') || '[]')
-      existingExpenses.push(newExpense)
-      localStorage.setItem('expenses', JSON.stringify(existingExpenses))
-      
-      router.push('/dashboard/expenses')
-    } catch (error) {
-      console.error('Mechanic service submission error:', error)
-      alert('Failed to save service record. Please try again.')
-    }
+  const handleFuelLogSubmit = createSubmitHandler(
+    '/api/expenses/fuel',
+    'totalCost',
+    (d) => d.stationName ? `Fuel at ${d.stationName}` : 'Fuel Purchase',
+    'stationName',
+    'fuel expense',
+  )
+
+  const handleFuelSubmitWrapper = async (data: unknown, receiptImage?: File) => {
+    const expenseData = data as Record<string, unknown>
+    const liters = Number(expenseData.liters) || 0
+    const pricePerLiter = Number(expenseData.pricePerLiter) || 0
+    const totalCost = liters * pricePerLiter
+    await handleFuelLogSubmit({ ...expenseData, totalCost }, receiptImage)
   }
 
-  const handleMaintenanceTopupSubmit = async (data: unknown, receiptImage: File) => {
-    try {
-      const expenseData = data as Record<string, unknown>
-      
-      // Serialize date properly
-      const expenseDate = expenseData.date instanceof Date 
-        ? expenseData.date.toISOString() 
-        : new Date().toISOString()
-      
-      // Get vehicle registration
-      const vehicle = vehicles.find(v => v.id === expenseData.vehicleId)
-      const vehicleReg = vehicle?.registrationNumber || 'Unknown'
-      
-      // Prepare data for API
-      const dataToSend = {
-        ...expenseData,
-        date: expenseDate,
-        amount: (expenseData.priceZar as number) || (expenseData.totalCostZar as number) || (expenseData.costZar as number) || 0,
-        description: `Maintenance: ${expenseData.itemType || 'Top-up'}`,
-        vehicleReg: vehicleReg,
-        supplierName: expenseData.shopName as string,
-      }
-      
-      const formData = new FormData()
-      formData.append('data', JSON.stringify(dataToSend))
-      if (receiptImage) formData.append('receipt', receiptImage)
-      
-      const token = localStorage.getItem('jwt_token')
-      const response = await fetch('/api/expenses/maintenance', {
-        method: 'POST',
-        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
-        body: formData
-      })
-      
-      if (!response.ok) {
-        const errorText = await response.text()
-        throw new Error(`Failed to save maintenance topup: ${errorText}`)
-      }
-      
-      const newExpense = await response.json()
-      
-      // Store in localStorage for persistence
-      const existingExpenses = JSON.parse(localStorage.getItem('expenses') || '[]')
-      existingExpenses.push(newExpense)
-      localStorage.setItem('expenses', JSON.stringify(existingExpenses))
-      
-      router.push('/dashboard/expenses')
-    } catch (error) {
-      console.error('Maintenance topup submission error:', error)
-      alert('Failed to save maintenance record. Please try again.')
-    }
-  }
+  const handleMechanicServiceSubmit = createSubmitHandler(
+    '/api/expenses/mechanic',
+    'totalCostZar',
+    (d) => (d.workDescription as string) || 'Mechanic Service',
+    'workshopName',
+    'service record',
+  )
 
-  const handleTyrePurchaseSubmit = async (data: unknown, receiptImage: File) => {
-    try {
-      const expenseData = data as Record<string, unknown>
-      
-      // Serialize date properly
-      const expenseDate = expenseData.date instanceof Date 
-        ? expenseData.date.toISOString() 
-        : new Date().toISOString()
-      
-      // Get vehicle registration
-      const vehicle = vehicles.find(v => v.id === expenseData.vehicleId)
-      const vehicleReg = vehicle?.registrationNumber || 'Unknown'
-      
-      // Prepare data for API
-      const dataToSend = {
-        ...expenseData,
-        date: expenseDate,
-        amount: (expenseData.priceZar as number) || 0,
-        description: `${expenseData.quantity}x ${expenseData.brand} Tyres`,
-        vehicleReg: vehicleReg,
-        odometerReading: expenseData.odometerReading as number,
-        supplierName: expenseData.supplier as string,
-        enableRotationTracking: expenseData.enableRotationTracking as boolean || false,
-        drivetrainType: expenseData.drivetrainType as string,
-      }
-      
-      const formData = new FormData()
-      formData.append('data', JSON.stringify(dataToSend))
-      if (receiptImage) formData.append('receipt', receiptImage)
-      
-      const token = localStorage.getItem('jwt_token')
-      const response = await fetch('/api/expenses/tyres', {
-        method: 'POST',
-        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
-        body: formData
-      })
-      
-      if (!response.ok) {
-        const errorText = await response.text()
-        throw new Error(`Failed to save tyre purchase: ${errorText}`)
-      }
-      
-      const newExpense = await response.json()
-      
-      // Store in localStorage for persistence
-      const existingExpenses = JSON.parse(localStorage.getItem('expenses') || '[]')
-      existingExpenses.push(newExpense)
-      localStorage.setItem('expenses', JSON.stringify(existingExpenses))
-      
-      router.push('/dashboard/expenses')
-    } catch (error) {
-      console.error('Tyre purchase submission error:', error)
-      alert('Failed to save tyre purchase. Please try again.')
-    }
-  }
+  const handleMaintenanceTopupSubmit = createSubmitHandler(
+    '/api/expenses/maintenance',
+    ['priceZar', 'totalCostZar', 'costZar'],
+    (d) => `Maintenance: ${d.itemType || 'Top-up'}`,
+    'shopName',
+    'maintenance record',
+  )
 
-  const handleFixedAdminSubmit = async (data: unknown, receiptImage: File) => {
-    try {
-      const expenseData = data as Record<string, unknown>
-      
-      // Serialize date properly
-      const expenseDate = expenseData.date instanceof Date 
-        ? expenseData.date.toISOString() 
-        : new Date().toISOString()
-      
-      // Get vehicle registration
-      const vehicle = vehicles.find(v => v.id === expenseData.vehicleId)
-      const vehicleReg = vehicle?.registrationNumber || 'Unknown'
-      
-      // Prepare data for API
-      const dataToSend = {
-        ...expenseData,
-        date: expenseDate,
-        amount: (expenseData.amountZar as number) || 0,
-        description: expenseData.description as string || 'Fixed Expense',
-        vehicleReg: vehicleReg,
-        supplierName: expenseData.providerName as string,
-        expenseType: expenseData.expenseType as string,
-      }
-      
-      const formData = new FormData()
-      formData.append('data', JSON.stringify(dataToSend))
-      if (receiptImage) formData.append('receipt', receiptImage)
-      
-      const token = localStorage.getItem('jwt_token')
-      const response = await fetch('/api/expenses/fixed', {
-        method: 'POST',
-        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
-        body: formData
-      })
-      
-      if (!response.ok) {
-        const errorText = await response.text()
-        throw new Error(`Failed to save fixed expense: ${errorText}`)
-      }
-      
-      const newExpense = await response.json()
-      
-      // Store in localStorage for persistence
-      const existingExpenses = JSON.parse(localStorage.getItem('expenses') || '[]')
-      existingExpenses.push(newExpense)
-      localStorage.setItem('expenses', JSON.stringify(existingExpenses))
-      
-      router.push('/dashboard/expenses')
-    } catch (error) {
-      console.error('Fixed admin submission error:', error)
-      alert('Failed to save fixed expense. Please try again.')
-    }
-  }
+  const handleTyrePurchaseSubmit = createSubmitHandler(
+    '/api/expenses/tyres',
+    'priceZar',
+    (d) => `${d.quantity}x ${d.brand} Tyres`,
+    'supplier',
+    'tyre purchase',
+  )
 
-  const handleCarWashSubmit = async (data: unknown, receiptImage: File) => {
-    try {
-      const expenseData = data as Record<string, unknown>
-      
-      // Serialize date properly
-      const expenseDate = expenseData.date instanceof Date 
-        ? expenseData.date.toISOString() 
-        : new Date().toISOString()
-      
-      // Get vehicle registration
-      const vehicle = vehicles.find(v => v.id === expenseData.vehicleId)
-      const vehicleReg = vehicle?.registrationNumber || 'Unknown'
-      
-      // Prepare data for API
-      const dataToSend = {
-        ...expenseData,
-        date: expenseDate,
-        amount: (expenseData.costZar as number) || 0,
-        description: `Car Wash: ${expenseData.washType || 'Standard'}`,
-        vehicleReg: vehicleReg,
-        supplierName: expenseData.washName as string,
-      }
-      
-      const formData = new FormData()
-      formData.append('data', JSON.stringify(dataToSend))
-      if (receiptImage) formData.append('receipt', receiptImage)
-      
-      const token = localStorage.getItem('jwt_token')
-      const response = await fetch('/api/expenses/carwash', {
-        method: 'POST',
-        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
-        body: formData
-      })
-      
-      if (!response.ok) {
-        const errorText = await response.text()
-        throw new Error(`Failed to save car wash expense: ${errorText}`)
-      }
-      
-      const newExpense = await response.json()
-      
-      // Store in localStorage for persistence
-      const existingExpenses = JSON.parse(localStorage.getItem('expenses') || '[]')
-      existingExpenses.push(newExpense)
-      localStorage.setItem('expenses', JSON.stringify(existingExpenses))
-      
-      router.push('/dashboard/expenses')
-    } catch (error) {
-      console.error('Car wash submission error:', error)
-      alert('Failed to save car wash expense. Please try again.')
-    }
-  }
+  const handleFixedAdminSubmit = createSubmitHandler(
+    '/api/expenses/fixed',
+    'amountZar',
+    (d) => (d.description as string) || 'Fixed Expense',
+    'providerName',
+    'fixed expense',
+  )
+
+  const handleCarWashSubmit = createSubmitHandler(
+    '/api/expenses/carwash',
+    'costZar',
+    (d) => `Car Wash: ${d.washType || 'Standard'}`,
+    'washName',
+    'car wash expense',
+  )
 
   if (isLoading) {
     return (
@@ -418,7 +172,7 @@ export default function NewExpensePage() {
         return (
           <FuelLogForm 
             vehicles={vehicles} 
-            onSubmit={handleFuelLogSubmit}
+            onSubmit={handleFuelSubmitWrapper}
           />
         )
       case ExpenseCategory.CAR_WASH:
