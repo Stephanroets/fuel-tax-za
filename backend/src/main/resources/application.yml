@@ -20,7 +20,7 @@ spring:
     datasource:
       url: jdbc:postgresql://localhost:5432/fuel_tax_za
       username: postgres
-      password: ${DB_PASSWORD:DARKSTAR420}
+      password: ${DB_PASSWORD}
       driver-class-name: org.postgresql.Driver
     show-sql: false
     properties:
@@ -50,7 +50,7 @@ spring:
 # JWT Configuration
 # ============================================================================
 jwt:
-  secret: ${JWT_SECRET:ZGVmYXVsdC1zZWNyZXQta2V5LWZvci1kZXZlbG9wbWVudC1vbmx5}
+  secret: ${JWT_SECRET}
   access-token-expiration: 86400000    # 24 hours (ms)
   refresh-token-expiration: 604800000  # 7 days (ms)
 
@@ -108,7 +108,9 @@ logging:
 springdoc:
   api-docs:
     path: /v3/api-docs
+    enabled: false
   swagger-ui:
     path: /swagger-ui.html
+    enabled: false
     operations-sorter: method
     tags-sorter: alpha

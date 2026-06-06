@@ -46,12 +46,16 @@ public class SecurityConfig {
         "/actuator/health",
         "/favicon.ico",
         "/error",
+        "/uploads/**"
+    };
+
+    // Swagger endpoints — only accessible when springdoc is enabled (dev profile)
+    private static final String[] SWAGGER_ENDPOINTS = {
         "/swagger-ui.html",
         "/swagger-ui/**",
         "/v3/api-docs/**",
         "/swagger-resources/**",
-        "/webjars/**",
-        "/uploads/**"
+        "/webjars/**"
     };
 
     @Bean
@@ -70,6 +74,9 @@ public class SecurityConfig {
 
                 // Public endpoints
                 .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
+
+                // Swagger (only served when springdoc.enabled=true in dev profile)
+                .requestMatchers(SWAGGER_ENDPOINTS).permitAll()
 
                 // Admin-only endpoints
                 .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
@@ -104,10 +111,9 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
 
-        // DEV MODE: Allow specific origins (cannot use wildcard with credentials)
+        // Allow specific origins (cannot use wildcard with credentials)
         configuration.addAllowedOrigin("http://localhost:3000");
         configuration.addAllowedOrigin("http://127.0.0.1:3000");
-        configuration.addAllowedOrigin("http://192.168.8.104:3000");
 
         // Allow all common HTTP methods
         configuration.setAllowedMethods(Arrays.asList(

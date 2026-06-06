@@ -2,7 +2,13 @@ import jwt from 'jsonwebtoken'
 import { cookies } from 'next/headers'
 import { UserRole, OrganizationMode, type JWTPayload } from '@/lib/types/database'
 
-const JWT_SECRET = process.env.JWT_SECRET || Buffer.from('ZGVmYXVsdC1zZWNyZXQta2V5LWZvci1kZXZlbG9wbWVudC1vbmx5', 'base64').toString()
+function getJwtSecret(): string {
+  const secret = process.env.JWT_SECRET
+  if (!secret) {
+    throw new Error('JWT_SECRET environment variable is required')
+  }
+  return secret
+}
 
 const ACCESS_TOKEN_EXPIRY = '15m'
 const REFRESH_TOKEN_EXPIRY = '7d'
@@ -20,7 +26,7 @@ export function generateAccessToken(payload: Omit<JWTPayload, 'iat' | 'exp'>): s
       ...payload,
       type: 'access'
     },
-    JWT_SECRET,
+    getJwtSecret(),
     {
       expiresIn: ACCESS_TOKEN_EXPIRY,
       algorithm: 'HS256'
@@ -37,7 +43,7 @@ export function generateRefreshToken(userId: string): string {
       sub: userId,
       type: 'refresh'
     },
-    JWT_SECRET,
+    getJwtSecret(),
     {
       expiresIn: REFRESH_TOKEN_EXPIRY,
       algorithm: 'HS256'
@@ -50,7 +56,7 @@ export function generateRefreshToken(userId: string): string {
  */
 export function verifyToken(token: string): TokenPayload | null {
   try {
-    const decoded = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] }) as any
+    const decoded = jwt.verify(token, getJwtSecret(), { algorithms: ['HS256'] }) as any
     return decoded as TokenPayload
   } catch {
     return null

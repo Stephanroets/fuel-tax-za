@@ -1,7 +1,13 @@
 import jwt from 'jsonwebtoken'
 import { UserRole, OrganizationMode, type JWTPayload } from '@/lib/types/database'
 
-const JWT_SECRET = process.env.JWT_SECRET || Buffer.from('ZGVmYXVsdC1zZWNyZXQta2V5LWZvci1kZXZlbG9wbWVudC1vbmx5', 'base64').toString()
+function getJwtSecret(): string {
+  const secret = process.env.JWT_SECRET
+  if (!secret) {
+    throw new Error('JWT_SECRET environment variable is required')
+  }
+  return secret
+}
 
 const ACCESS_TOKEN_EXPIRY = '15m' // Short expiry for testing
 
@@ -14,7 +20,7 @@ export function generateTestToken(payload: Omit<JWTPayload, 'iat' | 'exp'>): str
       ...payload,
       type: 'access'
     },
-    JWT_SECRET,
+    getJwtSecret(),
     {
       expiresIn: ACCESS_TOKEN_EXPIRY,
       algorithm: 'HS256'

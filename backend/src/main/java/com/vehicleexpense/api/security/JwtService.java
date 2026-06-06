@@ -24,7 +24,7 @@ import java.util.function.Function;
 @Service
 public class JwtService {
     
-    @Value("${jwt.secret:default-secret-key-for-development-only-change-in-production}")
+    @Value("${jwt.secret}")
     private String jwtSecret;
     
     @Value("${jwt.access-token-expiration:86400000}") // 24 hours default (86400000ms)
