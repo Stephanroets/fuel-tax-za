@@ -18,18 +18,26 @@ const getHeaders = (): HeadersInit => {
 };
 
 // 2. Auth Error Handler - Clears token and redirects on 401/403
-function handleAuthError(res: Response): never {
+async function handleAuthError(res: Response): Promise<never> {
   if (res.status === 401 || res.status === 403) {
     localStorage.removeItem('jwt_token');
     localStorage.removeItem('role');
     localStorage.removeItem('org_mode');
     localStorage.removeItem('user_profile');
-    // Redirect to login page
     if (typeof window !== 'undefined') {
       window.location.href = '/login?error=session_expired';
     }
   }
-  throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+
+  // Extract the server's error message before throwing
+  let serverMessage: string | null = null;
+  try {
+    const body = await res.json();
+    serverMessage = body.message || body.error || null;
+  } catch {
+    // Response body wasn't JSON or was already consumed
+  }
+  throw new Error(serverMessage || `HTTP ${res.status}: ${res.statusText}`);
 }
 
 // 3. The API Object - All methods use dynamic headers
@@ -44,15 +52,15 @@ async function safeJsonParse(res: Response) {
 }
 
 export const api = {
-  get: async (endpoint: string) => {
+  get: async <T = unknown>(endpoint: string) => {
     const url = `${API_URL}${endpoint}`;
     try {
       const res = await fetch(url, {
         method: 'GET',
         headers: getHeaders(),
       });
-      if (!res.ok) handleAuthError(res);
-      return { data: await safeJsonParse(res) };
+      if (!res.ok) await handleAuthError(res);
+      return { data: await safeJsonParse(res) as T };
     } catch (error) {
       console.error(`[API] GET ${url} failed:`, error);
       throw error;
@@ -67,7 +75,7 @@ export const api = {
         headers: getHeaders(),
         body: JSON.stringify(body),
       });
-      if (!res.ok) handleAuthError(res);
+      if (!res.ok) await handleAuthError(res);
       return { data: await safeJsonParse(res) };
     } catch (error) {
       console.error(`[API] POST ${url} failed:`, error);
@@ -83,7 +91,7 @@ export const api = {
         headers: getHeaders(),
         body: JSON.stringify(body),
       });
-      if (!res.ok) handleAuthError(res);
+      if (!res.ok) await handleAuthError(res);
       return { data: await safeJsonParse(res) };
     } catch (error) {
       console.error(`[API] PATCH ${url} failed:`, error);
@@ -99,7 +107,7 @@ export const api = {
         headers: getHeaders(),
         body: JSON.stringify(body),
       });
-      if (!res.ok) handleAuthError(res);
+      if (!res.ok) await handleAuthError(res);
       return { data: await safeJsonParse(res) };
     } catch (error) {
       console.error(`[API] PUT ${url} failed:`, error);
@@ -114,7 +122,7 @@ export const api = {
         method: 'DELETE',
         headers: getHeaders(),
       });
-      if (!res.ok) handleAuthError(res);
+      if (!res.ok) await handleAuthError(res);
       return { data: await safeJsonParse(res) };
     } catch (error) {
       console.error(`[API] DELETE ${url} failed:`, error);
@@ -140,7 +148,7 @@ export const apiForm = {
       headers,
       body: formData,
     });
-    if (!res.ok) handleAuthError(res);
+    if (!res.ok) await handleAuthError(res);
     return { data: await res.json() };
   },
 };
@@ -155,7 +163,6 @@ export const apiFetch = async (path: string, options: RequestInit = {}) => {
       ...options.headers,
     },
   });
-  if (!res.ok) handleAuthError(res);
   return res;
 };
 
@@ -175,6 +182,6 @@ export const apiFormFetch = async (endpoint: string, formData: FormData) => {
     headers,
     body: formData,
   });
-  if (!res.ok) handleAuthError(res);
+  if (!res.ok) await handleAuthError(res);
   return res;
 };

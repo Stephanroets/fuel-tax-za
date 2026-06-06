@@ -64,6 +64,7 @@ export default function ExpensesPage() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([])
   const [selectedVehicle, setSelectedVehicle] = useState<string>('ALL')
   const [expenses, setExpenses] = useState<any[]>([])
+  const [expenseError, setExpenseError] = useState<string | null>(null)
 
   // Fetch expenses from backend API on mount
   useEffect(() => {
@@ -90,6 +91,7 @@ export default function ExpensesPage() {
         }
       } catch (err) {
         console.error('Expenses - Failed to fetch from backend:', err)
+        setExpenseError('Failed to load expenses. Please try again.')
         setExpenses([])
       }
     }
@@ -145,6 +147,12 @@ export default function ExpensesPage() {
             </Button>
           </div>
           
+          {expenseError && (
+            <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+              {expenseError}
+            </div>
+          )}
+
           {/* Search and Vehicle Filter */}
           <div className="flex gap-2">
             <div className="relative flex-1">

@@ -54,15 +54,10 @@ export const authService = {
 
   logout: async (): Promise<void> => {
     try {
-      await api.post('/auth/logout')
-      // Clear localStorage on frontend side
-      localStorage.removeItem('jwt_token')
-      localStorage.removeItem('role')
-      localStorage.removeItem('org_mode')
-      localStorage.removeItem('user_profile')
+      await api.post('/auth/logout', {})
     } catch (error) {
       console.error('Logout failed:', error)
-      // Still clear local storage even if backend call fails
+    } finally {
       localStorage.removeItem('jwt_token')
       localStorage.removeItem('role')
       localStorage.removeItem('org_mode')

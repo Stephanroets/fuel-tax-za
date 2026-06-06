@@ -88,7 +88,9 @@ export default function DashboardPage() {
     try {
       const raw = localStorage.getItem("user_profile");
       if (raw) setFirstName(JSON.parse(raw).firstName ?? null);
-    } catch {}
+    } catch (e) {
+      console.warn("Failed to parse user_profile from localStorage:", e);
+    }
 
     const token = localStorage.getItem("jwt_token");
     if (!token) {
@@ -126,8 +128,8 @@ export default function DashboardPage() {
         setSelectedVehicle(firstCompliant);
         setChecking(false);
       })
-      .catch(() => {
-        // Network failure — fail open, don't lock the user out
+      .catch((err) => {
+        console.error("Failed to fetch vehicles:", err);
         setChecking(false);
       });
   }, [router]);

@@ -94,9 +94,11 @@ public class ExpenseService {
             
             return expense;
 
+        } catch (IllegalArgumentException e) {
+            throw e;
         } catch (Exception e) {
             log.error("Error creating fuel expense: {}", e.getMessage(), e);
-            throw new RuntimeException("Failed to create fuel expense: " + e.getMessage());
+            throw new RuntimeException("Failed to create fuel expense", e);
         }
     }
 
@@ -145,9 +147,11 @@ public class ExpenseService {
             
             return expense;
 
+        } catch (IllegalArgumentException e) {
+            throw e;
         } catch (Exception e) {
             log.error("Error creating mechanic service: {}", e.getMessage(), e);
-            throw new RuntimeException("Failed to create mechanic service: " + e.getMessage());
+            throw new RuntimeException("Failed to create mechanic service", e);
         }
     }
 
@@ -196,9 +200,11 @@ public class ExpenseService {
             
             return expense;
 
+        } catch (IllegalArgumentException e) {
+            throw e;
         } catch (Exception e) {
             log.error("Error creating maintenance topup: {}", e.getMessage(), e);
-            throw new RuntimeException("Failed to create maintenance topup: " + e.getMessage());
+            throw new RuntimeException("Failed to create maintenance topup", e);
         }
     }
 
@@ -249,9 +255,11 @@ public class ExpenseService {
             
             return expense;
 
+        } catch (IllegalArgumentException e) {
+            throw e;
         } catch (Exception e) {
             log.error("Error creating tyre purchase: {}", e.getMessage(), e);
-            throw new RuntimeException("Failed to create tyre purchase: " + e.getMessage());
+            throw new RuntimeException("Failed to create tyre purchase", e);
         }
     }
 
@@ -300,9 +308,11 @@ public class ExpenseService {
             
             return expense;
 
+        } catch (IllegalArgumentException e) {
+            throw e;
         } catch (Exception e) {
             log.error("Error creating fixed expense: {}", e.getMessage(), e);
-            throw new RuntimeException("Failed to create fixed expense: " + e.getMessage());
+            throw new RuntimeException("Failed to create fixed expense", e);
         }
     }
 
@@ -351,9 +361,11 @@ public class ExpenseService {
             
             return expense;
 
+        } catch (IllegalArgumentException e) {
+            throw e;
         } catch (Exception e) {
             log.error("Error creating car wash expense: {}", e.getMessage(), e);
-            throw new RuntimeException("Failed to create car wash expense: " + e.getMessage());
+            throw new RuntimeException("Failed to create car wash expense", e);
         }
     }
 
@@ -364,7 +376,7 @@ public class ExpenseService {
     public void deleteExpense(UUID expenseId, User user) {
         Expense expense = expenseRepository.findByIdAndUser_Id(expenseId, user.getId());
         if (expense == null) {
-            throw new RuntimeException("Expense not found or access denied");
+            throw new IllegalArgumentException("Expense not found or access denied");
         }
         
         // Delete receipt image if exists
@@ -385,7 +397,7 @@ public class ExpenseService {
             return expenseRepository.save(expense);
         } catch (Exception e) {
             log.error("Error updating expense: {}", e.getMessage(), e);
-            throw new RuntimeException("Failed to update expense: " + e.getMessage());
+            throw new RuntimeException("Failed to update expense", e);
         }
     }
 }

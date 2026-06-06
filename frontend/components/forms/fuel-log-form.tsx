@@ -121,10 +121,15 @@ export function FuelLogForm({ vehicles, onSubmit }: FuelLogFormProps) {
     }
   }
 
+  const [submitError, setSubmitError] = useState<string | null>(null)
+
   const handleFormSubmit = async (data: FuelLogInput) => {
     setIsSubmitting(true)
+    setSubmitError(null)
     try {
       await onSubmit(data, receiptImage || undefined)
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Failed to submit')
     } finally {
       setIsSubmitting(false)
     }
@@ -132,6 +137,11 @@ export function FuelLogForm({ vehicles, onSubmit }: FuelLogFormProps) {
 
   return (
     <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
+      {submitError && (
+        <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+          {submitError}
+        </div>
+      )}
       {/* Vehicle Selection */}
       <Card className="border-border/50">
         <CardHeader className="pb-3">
